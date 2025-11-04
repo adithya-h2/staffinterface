@@ -216,6 +216,8 @@ class Clara {
         this.textCleaningStatus = document.getElementById('textCleaningStatus');
         this.statusDot = document.getElementById('statusDot');
         this.statusText = document.getElementById('statusText');
+    this.staffDirectory = {}; // shortName/email/name mapping for availability lookups
+    this._availabilityPollTimer = null;
         
         // Error handling
         this.errorModal = document.getElementById('errorModal');
@@ -225,7 +227,7 @@ class Clara {
     }
 
     initializeSpeechRecognition() {
-        // Initialize both browser speech recognition and Sarvam AI
+        // Initialize browser-native speech recognition (Web Speech API)
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             this.speechRecognition = new SpeechRecognition();
@@ -368,15 +370,13 @@ class Clara {
             }
             
             if (this.isListening) {
-                // Stop current speech recognition (either Sarvam or browser)
-                if (this.currentMediaRecorder && this.currentMediaRecorder.state === 'recording') {
-                    this.stopSarvamSpeechRecognition();
-                } else if (this.speechRecognition) {
+                // Stop browser speech recognition
+                if (this.speechRecognition) {
                     this.speechRecognition.stop();
                 }
             } else {
-                // Try Sarvam AI first, fallback to browser speech recognition
-                this.startSarvamSpeechRecognition();
+                // Start browser speech recognition
+                this.startBrowserSpeechRecognition();
             }
         });
 
@@ -762,6 +762,28 @@ class Clara {
             this.updateStatus('Ready', 'ready');
         });
 
+        // Live staff status updates
+        this.socket.on('staff_status_update', (payload) => {
+            try {
+                const { staffEmail, status } = payload || {};
+                const staffSelect = document.getElementById('staffSelect');
+                if (!staffSelect) return;
+                const selectedId = staffSelect.value;
+                if (!selectedId) return; // no staff selected
+
+                const selectedEmail = this._resolveStaffEmailById(selectedId);
+                if (selectedEmail && staffEmail && selectedEmail.toLowerCase() === staffEmail.toLowerCase()) {
+                    this._updateSelectedStaffStatusUI(status, payload);
+                    // Optional: notify user on status changes
+                    const name = this._resolveStaffNameById(selectedId) || 'Staff';
+                    if (status === 'online') this.addMessage(`✅ ${name} is now online.`, 'system');
+                    if (status === 'busy') this.addMessage(`📞 ${name} is currently on a call.`, 'system');
+                    if (status === 'in_class') this.addMessage(`🏫 ${name} is in a class.`, 'system');
+                    if (status === 'offline') this.addMessage(`⚫ ${name} went offline.`, 'system');
+                }
+            } catch (_) {}
+        });
+
         this.socket.on('call-accepted', (data) => {
             this.addMessage(`Your call has been accepted by ${data.staffName} from ${data.staffDepartment}. You will be connected shortly.`, 'system');
         });
@@ -976,7 +998,17 @@ class Clara {
 			console.log('📋 Staff data received:', staff);
 			
 			const staffSelect = document.getElementById('staffSelect');
-			if (staffSelect && staff.length > 0) {
+            if (staffSelect && staff.length > 0) {
+                // Build a directory for quick lookup
+                try {
+                    const fullListRes = await fetch('/api/staff/list');
+                    const fullList = await fullListRes.json();
+                    this.staffDirectory = (fullList || []).reduce((acc, s) => {
+                        acc[s.shortName] = { email: s.email, name: s.name };
+                        return acc;
+                    }, {});
+                } catch (_) {}
+
 				const options = '<option value="">Select a staff member...</option>' +
 					staff.map(member => `<option value="${member._id || member.id}">${member.name} (${member.department || 'General'})</option>`).join('');
 				staffSelect.innerHTML = options;
@@ -984,7 +1016,7 @@ class Clara {
 				// Update status
 				const staffStatus = document.getElementById('staffStatus');
 				if (staffStatus) {
-					staffStatus.textContent = `(${staff.length} staff members available)`;
+                    staffStatus.textContent = `(${staff.length} staff members available)`;
 					staffStatus.style.color = '#10b981';
 				}
 				
@@ -1151,6 +1183,45 @@ class Clara {
             this.showError('Failed to start conversation. Please try again.');
             this.updateStatus('Error', 'error');
         }
+
+        // Start availability polling once UI is ready
+        this._startAvailabilityPolling();
+    }
+
+    _startAvailabilityPolling() {
+        if (this._availabilityPollTimer) return;
+        this._availabilityPollTimer = setInterval(async () => {
+            try {
+                const staffSelect = document.getElementById('staffSelect');
+                if (!staffSelect || !staffSelect.value) return;
+                const email = this._resolveStaffEmailById(staffSelect.value);
+                if (!email) return;
+                const res = await fetch(`/api/staff/status?q=${encodeURIComponent(email)}`);
+                const data = await res.json();
+                if (data && data.success) {
+                    this._updateSelectedStaffStatusUI(data.status, data);
+                }
+            } catch (_) {}
+        }, 30000);
+    }
+
+    _resolveStaffEmailById(shortNameOrId) {
+        const entry = this.staffDirectory?.[shortNameOrId];
+        return entry?.email || null;
+    }
+
+    _resolveStaffNameById(shortNameOrId) {
+        const entry = this.staffDirectory?.[shortNameOrId];
+        return entry?.name || null;
+    }
+
+    _updateSelectedStaffStatusUI(status, data) {
+        const staffStatus = document.getElementById('staffStatus');
+        if (!staffStatus) return;
+        const color = status === 'online' ? '#10b981' : (status === 'busy' || status === 'in_class') ? '#ef4444' : '#6b7280';
+        const label = status === 'online' ? 'Online' : status === 'busy' ? 'Busy' : status === 'in_class' ? 'In Class' : 'Offline';
+        staffStatus.innerHTML = `(<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block"></span> ${label}</span>)`;
+        staffStatus.style.color = color;
     }
 
     startSpeechRecognition() {
@@ -1204,137 +1275,33 @@ class Clara {
         }
     }
 
-    // Sarvam AI Speech Recognition Methods
-    async startSarvamSpeechRecognition() {
+    // Browser-native Speech Recognition (Web Speech API)
+    startBrowserSpeechRecognition() {
         try {
             if (!this.isConversationStarted) {
                 this.showError('Please start a conversation first.');
                 return;
             }
 
-            if (this.isListening) {
-                this.stopSarvamSpeechRecognition();
+            if (!this.speechRecognition) {
+                this.showError('Speech recognition not available in this browser.');
                 return;
             }
 
-            console.log('🎤 Starting Sarvam AI speech recognition...');
-            
-            // Update UI to show listening state
-            this.isListening = true;
-            this.speechInputButton.classList.add('recording');
-            this.micIcon.className = 'fas fa-stop';
-            this.speechStatusDisplay.textContent = 'Listening with Sarvam AI...';
-            this.speechStatusDisplay.classList.add('listening');
-            this.updateStatus('Listening with Sarvam AI...', 'listening');
-
-            // Get user media for audio recording
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream);
-            const audioChunks = [];
-
-            mediaRecorder.ondataavailable = (event) => {
-                audioChunks.push(event.data);
-            };
-
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                await this.processSarvamAudio(audioBlob);
-                stream.getTracks().forEach(track => track.stop());
-            };
-
-            // Start recording
-            mediaRecorder.start();
-            this.currentMediaRecorder = mediaRecorder;
-
-            // Auto-stop after 10 seconds
-            setTimeout(() => {
-                if (this.isListening && this.currentMediaRecorder && this.currentMediaRecorder.state === 'recording') {
-                    this.stopSarvamSpeechRecognition();
-                }
-            }, 10000);
+            console.log('🎤 Starting browser speech recognition...');
+            this.speechRecognition.start();
+            this.noSpeechRetries = 0;
 
         } catch (error) {
-            console.error('❌ Sarvam speech recognition error:', error);
-            this.showError('Failed to start Sarvam AI speech recognition: ' + error.message);
-            this.resetSpeechInput();
-        }
-    }
-
-    stopSarvamSpeechRecognition() {
-        if (this.currentMediaRecorder && this.currentMediaRecorder.state === 'recording') {
-            this.currentMediaRecorder.stop();
-        }
-        this.isListening = false;
-        this.speechInputButton.classList.remove('recording');
-        this.micIcon.className = 'fas fa-microphone';
-        this.speechStatusDisplay.classList.remove('listening');
-        this.speechStatusDisplay.textContent = 'Processing with Sarvam AI...';
-    }
-
-    async processSarvamAudio(audioBlob) {
-        try {
-            console.log('🔄 Processing audio with Sarvam AI...');
-            
-            // Convert audio to base64
-            const reader = new FileReader();
-            reader.onload = async () => {
-                const base64Audio = reader.result.split(',')[1];
-                
-                // Send to Sarvam AI
-                const response = await fetch('/api/speech/transcribe', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        audio: base64Audio,
-                        audioFormat: 'wav',
-                        language: 'auto-detect'
-                    })
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    console.log('✅ Sarvam AI transcription:', result.text);
-                    this.speechStatusDisplay.textContent = `Transcribed: "${result.text}"`;
-                    
-                    // Send the transcribed text as a message
-                    await this.sendMessage(result.text);
-                    
-                    // Update diagnostic data
-                    this.diagnosticData.languageDetectionAccuracy = result.confidence || 0.95;
-                    
-                } else {
-                    console.log('❌ Sarvam AI failed:', result.error);
-                    this.speechStatusDisplay.textContent = 'Sarvam AI failed, trying browser speech...';
-                    
-                    // Fallback to browser speech recognition
-                    if (result.fallback === 'browser_speech' && this.speechRecognition) {
-                        setTimeout(() => {
-                            console.log('🔄 Falling back to browser speech recognition...');
-                            this.startSpeechRecognition();
-                        }, 1000);
-                    } else {
-                        // If no fallback available, reset the UI
-                        setTimeout(() => {
-                            this.resetSpeechInput();
-                        }, 2000);
-                    }
-                }
-                
-                // Reset UI after processing
-                setTimeout(() => {
-                    this.resetSpeechInput();
-                }, 2000);
-            };
-            
-            reader.readAsDataURL(audioBlob);
-            
-        } catch (error) {
-            console.error('❌ Audio processing error:', error);
-            this.showError('Failed to process audio: ' + error.message);
-            this.resetSpeechInput();
+            console.error('❌ Speech recognition error:', error);
+            if (error.name === 'InvalidStateError') {
+                // Already running, stop and restart
+                this.speechRecognition.stop();
+                setTimeout(() => this.startBrowserSpeechRecognition(), 100);
+            } else {
+                this.showError('Failed to start speech recognition: ' + error.message);
+                this.resetSpeechInput();
+            }
         }
     }
 
@@ -1743,233 +1710,8 @@ class Clara {
 			return;
 		}
 		
-		// Use hybrid TTS system: Sarvam TTS for Indian languages, Edge TTS for English
-		this.speakWithHybridTTS(cleanedText);
-	}
-
-	// Hybrid TTS system: Standard English accent, Indian accent for Indian languages
-	async speakWithHybridTTS(text) {
-		try {
-			// ENHANCED: Use language detection with confidence threshold
-			const langDetection = this.detectLanguageWithConfidence(text);
-			let selectedLang = langDetection.code;
-			
-			console.log('🌐 Language detection:', langDetection);
-			
-			// Apply confidence threshold: if confidence < 0.75, use previous language
-			if (langDetection.confidence < this.LANG_CONFIDENCE_THRESHOLD) {
-				console.log(`⚠️ Low confidence (${langDetection.confidence.toFixed(2)}), using previous language: ${this.previousLanguage}`);
-				selectedLang = this.previousLanguage;
-			} else {
-				this.previousLanguage = selectedLang;
-			}
-			
-			// Force Sarvam TTS for all languages; Edge only as fallback below
-			console.log('🎯 Routing all TTS to Sarvam first. Language:', selectedLang);
-			await this.speakWithSarvamTTS(text, selectedLang);
-		} catch (error) {
-			console.error('❌ Hybrid TTS error:', error);
-			// Fallback to Edge TTS in case Sarvam path fails
-			await this.speakWithEdgeTTS(text);
-		}
-	}
-	
-	/**
-	 * Detect language with confidence score for threshold-based routing
-	 * Returns: { code: 'en'|'hi'|'kn'|'ta'|'te', confidence: number }
-	 * ENHANCED: Multi-signal detection for 100% accuracy
-	 */
-	detectLanguageWithConfidence(text) {
-		const lowerText = text.toLowerCase().trim();
-		let scores = {
-			'en': 0,
-			'hi': 0,
-			'kn': 0,
-			'ta': 0,
-			'te': 0
-		};
-		
-		// Signal 1: Unicode script detection (highest confidence - near 100%)
-		if (/[\u0C80-\u0CFF]/i.test(text)) scores['kn'] += 0.9;
-		if (/[अ-ह]/i.test(text)) scores['hi'] += 0.9;
-		if (/[\u0B80-\u0BFF]/i.test(text)) scores['ta'] += 0.9;
-		if (/[\u0C00-\u0C7F]/i.test(text)) scores['te'] += 0.9;
-		
-		// Signal 2: Comprehensive keyword density analysis
-		const keywords = {
-			'hi': ['hai', 'hain', 'ho', 'main', 'tum', 'aap', 'hum', 'kaise', 'kahan', 'kab', 'kyun', 'achha', 'theek', 'bilkul', 'zaroor', 'shukriya', 'dhanyawad', 'namaste', 'namaskar', 'baat', 'karo', 'bolo', 'sunao', 'batao', 'batayiye', 'madad', 'chahiye', 'karna', 'karne', 'kar', 'institute', 'college', 'vidyalaya', 'professor', 'prof', 'sir', 'madam'],
-			'kn': ['illa', 'sari', 'aagthide', 'aadare', 'yenu', 'yelli', 'hege', 'yake', 'yavaga', 'matadu', 'helu', 'kelu', 'namaskara', 'namaskaragalu', 'dhanyavadagalu', 'bantu', 'baruthe', 'hoguthe', 'kodu', 'thago', 'sari', 'thappu', 'olleya', 'ketta', 'chikka', 'dodda', 'hosa', 'nalla', 'anna', 'akka', 'amma', 'appa'],
-			'ta': ['irukku', 'varuthu', 'poguthu', 'pannu', 'kekka', 'vanthen', 'velven', 'enga', 'enna', 'eppadi', 'eppo', 'vanakkam', 'nandri', 'pesu', 'paaru', 'kelu', 'tharu', 'vidu', 'kodu', 'eduthuko', 'venam', 'seri', 'thappa', 'nalla', 'anna', 'akka', 'amma', 'appa'],
-			'te': ['unnaru', 'vastunnaru', 'pothunnaru', 'cheppu', 'vinnu', 'chudu', 'yela', 'enduku', 'eppudu', 'ela', 'kani', 'ledu', 'namaskaram', 'dhanyavadalu', 'kripya', 'matladu', 'chelpu', 'ivvu', 'theesuko', 'vaddu', 'sare', 'tappu', 'manchi', 'annagaru', 'akka', 'amma']
-		};
-		
-		for (const [lang, words] of Object.entries(keywords)) {
-			const matches = words.filter(w => lowerText.includes(w)).length;
-			const density = matches / words.length;
-			scores[lang] += density * 0.7; // Increased weight
-		}
-		
-		// Signal 3: Phonetic patterns (for Roman script)
-		const phoneticPatterns = {
-			'hi': /[a-z]+[ao]+\s/g, // Common Hindi endings
-			'kn': /\w+[ate]+\s/gi,
-			'ta': /\w+[u]+\s/gi
-		};
-		
-		for (const [lang, pattern] of Object.entries(phoneticPatterns)) {
-			const matches = (lowerText.match(pattern) || []).length;
-			if (matches > 0) {
-				scores[lang] += 0.2;
-			}
-		}
-		
-		// Find max score
-		let maxScore = 0;
-		let detectedCode = 'en';
-		
-		for (const [lang, score] of Object.entries(scores)) {
-			if (score > maxScore) {
-				maxScore = score;
-				detectedCode = lang;
-			}
-		}
-		
-		// English fallback if all scores are low
-		if (maxScore < 0.3) {
-			return { code: 'en', confidence: 0.9 };
-		}
-		
-		const confidence = Math.min(maxScore, 1.0);
-		console.log(`🎯 Language scores:`, scores, `→ Selected: ${detectedCode} (${confidence.toFixed(2)})`);
-		
-		return { code: detectedCode, confidence: confidence };
-	}
-
-	async speakWithSarvamTTS(text, language = 'hi-IN') {
-		try {
-			// Auto-detect script to ensure correct language selection
-			try {
-				if (/[\u0900-\u097F]/.test(text)) {
-					language = 'hi-IN';
-				} else if (/[\u0C80-\u0CFF]/.test(text)) {
-					language = 'kn-IN';
-				} else if (/[\u0C00-\u0C7F]/.test(text)) {
-					language = 'te-IN';
-				} else if (/[\u0B80-\u0BFF]/.test(text)) {
-					language = 'ta-IN';
-				} else if (/[\u0D00-\u0D7F]/.test(text)) {
-					language = 'ml-IN';
-				}
-			} catch (e) { /* no-op */ }
-			
-			// Stop any current audio playback to prevent overlapping (non-blocking for speed)
-			this.stopAllAudio();
-			
-			// Reduce delay significantly - 50ms is enough for iOS compatibility
-			await new Promise(resolve => setTimeout(resolve, 50));
-			
-			// Map language codes for Sarvam TTS - ensure correct language per utterance
-			const sarvamLanguage = this.mapLanguageForSarvam(language);
-			console.log('🌐 Language mapping:', language, '->', sarvamLanguage);
-			
-			// Detect emotional context for natural speech
-			const emotionalContext = this.detectEmotionalContext(text);
-			
-			// Request audio - 16kHz for Indian languages (Sarvam API settings), 48kHz for English
-			const isIndianLanguage = !sarvamLanguage.startsWith('en');
-			const requestedSampleRate = isIndianLanguage ? 16000 : 48000;
-			
-			const response = await fetch('/api/sarvam-tts/speak', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					text: text,
-					language: sarvamLanguage, // Correct language code per utterance
-					emotionalContext: emotionalContext,
-					format: 'mp3', // Request MP3 format for better compatibility
-					sample_rate: requestedSampleRate // 16kHz for Indian languages, 48kHz for English
-				})
-			});
-
-			const result = await response.json();
-			
-			// Handle mixed-language response (multiple parts) or single audio
-			if (result.success && Array.isArray(result.parts) && result.parts.length) {
-				console.log(`✅ Sarvam TTS success, playing ${result.parts.length} parts`);
-				await this.playPartsBase64(result.parts, text);
-			} else if (result.success && result.audio) {
-				console.log('✅ Sarvam TTS success, playing audio');
-				await this.playAudioFromBase64(result.audio, text);
-			} else {
-				console.log('⚠️ Sarvam TTS failed or no audio, falling back:', result.error || 'No audio');
-				await this.speakWithEdgeTTS(text);
-			}
-		} catch (error) {
-			console.error('❌ Sarvam TTS error, falling back to Edge TTS:', error);
-			await this.speakWithEdgeTTS(text);
-		}
-	}
-
-	// Enhanced emotional context detection for ultra-natural speech
-	detectEmotionalContext(text) {
-		const lowerText = text.toLowerCase();
-		
-		// Greeting patterns (more comprehensive)
-		if (/(नमस्ते|नमस्कार|हेलो|हाय|hi|hello|hey|good morning|good afternoon|good evening|greetings|welcome|swagat)/i.test(lowerText)) {
-			return 'greeting';
-		}
-		
-		// Professional patterns (expanded)
-		if (/(meeting|appointment|schedule|project|task|work|business|official|conference|presentation|report|deadline|urgent|important)/i.test(lowerText)) {
-			return 'professional';
-		}
-		
-		// Helpful patterns (enhanced)
-		if (/(help|assist|support|guide|how|what|where|when|why|please|could you|would you|can you|need|require|looking for)/i.test(lowerText)) {
-			return 'helpful';
-		}
-		
-		// Excited patterns (more comprehensive)
-		if (/(great|awesome|excellent|wonderful|amazing|fantastic|brilliant|perfect|love|excited|thrilled|happy|celebration)/i.test(lowerText)) {
-			return 'excited';
-		}
-		
-		// Calm patterns (expanded)
-		if (/(calm|relax|peaceful|quiet|gentle|soft|slow|easy|don't worry|it's okay|everything will be fine)/i.test(lowerText)) {
-			return 'calm';
-		}
-		
-		// Question patterns (more conversational)
-		if (/(\?|question|ask|wondering|curious|tell me|explain|describe)/i.test(lowerText)) {
-			return 'helpful';
-		}
-		
-		// Default to casual for natural conversation
-		return 'casual';
-	}
-
-	// Map language codes for Sarvam TTS
-	// All languages use Sarvam's supported locale codes
-	mapLanguageForSarvam(language) {
-		const languageMap = {
-			'hi': 'hi-IN',
-			'kn': 'kn-IN',
-			'te': 'te-IN',
-			'ta': 'ta-IN',
-			'ml': 'ml-IN',
-			'mr': 'mr-IN',
-			'gu': 'gu-IN',
-			'bn': 'bn-IN',
-			'pa': 'pa-IN',
-			'od': 'od-IN',
-			'en': 'en-IN',      // English with Indian accent (Sarvam requires en-IN, not en-US)
-			'en-US': 'en-IN',   // English with Indian accent
-			'en-GB': 'en-IN'    // English with Indian accent
-		};
-		
-		return languageMap[language] || 'en-IN'; // Default to en-IN
+		// Use browser-native TTS (Web Speech API - SpeechSynthesis)
+		this.speakWithBrowserTTS(cleanedText);
 	}
 
 	async speakWithEdgeTTS(text, language = 'en') {

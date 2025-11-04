@@ -1,4 +1,4 @@
-const { queryGemini } = require('../geminiApi');
+﻿const { queryGemini } = require('../geminiApi');
 const Staff = require('../models/Staff');
 const StaffTimetable = require('../models/StaffTimetable');
 const Appointment = require('../models/Appointment');
@@ -11,6 +11,15 @@ class ClaraAI {
     this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
     this.isDemoMode = false;
     this.currentCallRequest = null;
+    this.onlineStaffChecker = null; // Function to check if staff is online
+  }
+
+  /**
+   * Set the function to check staff online status
+   * @param {Function} checker - Function that takes staff email/shortName and returns boolean
+   */
+  setOnlineStaffChecker(checker) {
+    this.onlineStaffChecker = checker;
   }
 
   // Routing: build powerful system prompt
@@ -150,18 +159,86 @@ User: ${message}`;
           };
         }
 
-        // Availability or timetable checks
+        // Availability or timetable checks - ALWAYS initiate video call if available
         if ((control.action === 'check_availability' || control.intent === 'availability_query' || control.intent === 'timetable_query')
             && control.staff && control.staff.name) {
-          const analysis = await this.analyzeMessage(control.staff.name);
-          const staff = analysis.staffNames[0] || { name: control.staff.name, _id: undefined };
+          
+          console.log('🔍 Availability check for staff:', control.staff.name);
+          
+          // Try to find staff in profiles first
+          let staff = staffProfiles.find(s => {
+            const lowerControlName = control.staff.name.toLowerCase();
+            const lowerStaffName = s.name.toLowerCase();
+            
+            // Exact match
+            if (lowerStaffName === lowerControlName) return true;
+            
+            // Partial match
+            if (lowerStaffName.includes(lowerControlName) || lowerControlName.includes(lowerStaffName)) return true;
+            
+            // Name without prefix (e.g., "Anitha C S" matches "Prof. Anitha C S")
+            const nameWithoutPrefix = lowerStaffName.replace(/^(prof\.|dr\.|mrs?\.|ms\.)\s*/i, '');
+            if (nameWithoutPrefix === lowerControlName || lowerControlName.includes(nameWithoutPrefix)) return true;
+            
+            return false;
+          });
+          
+          // If not found in profiles, try analyzing the original message
+          if (!staff) {
+            console.log('⚠️ Staff not found in profiles, analyzing message:', message);
+            const analysis = await this.analyzeMessage(message);
+            staff = analysis.staffNames[0];
+          }
+          
+          // Last resort: create a staff object with the name from control
+          if (!staff) {
+            console.log('⚠️ Creating fallback staff object with name:', control.staff.name);
+            staff = { 
+              name: control.staff.name, 
+              _id: undefined,
+              email: undefined,
+              shortName: undefined
+            };
+          }
+          
+          console.log('✅ Found staff for availability check:', staff.name);
+          
           const avail = await this.getStaffAvailability(staff);
-          const timeText = control.time && control.time.text ? ` at ${control.time.text}` : '';
-          const prefix = control.response_text || `Let me check ${staff.name}’s availability${timeText}.`;
-          const follow = avail.canAcceptCall ? ` They are available. Would you like me to connect you now?` : ` Current status: ${avail.status}.`;
-          return { response: `${prefix}${follow}` };
+          
+          console.log('📊 Availability result:', { 
+            isOnline: avail.isOnline, 
+            canAcceptCall: avail.canAcceptCall,
+            status: avail.status 
+          });
+          
+          // If staff is available, initiate video call directly
+          if (avail.isOnline && avail.canAcceptCall) {
+            console.log('🎥 Staff is online and available - initiating video call');
+            const videoCallAnalysis = {
+              staffNames: [staff],
+              intent: 'schedule_call',
+              isStaffRelated: true
+            };
+            const callResp = await this.handleVideoCallRequest(message, videoCallAnalysis);
+            return {
+              response: callResp.response,
+              isVideoCallRequest: true,
+              staffInfo: staff,
+              requiresUserDecision: true,
+              isDemoMode: true
+            };
+          } else {
+            // Staff offline or busy - inform user
+            console.log('❌ Staff not available:', { isOnline: avail.isOnline, canAcceptCall: avail.canAcceptCall });
+            let response;
+            if (avail.isOnline && !avail.canAcceptCall) {
+              response = `${staff.name} is online but currently ${avail.status.toLowerCase()}. Would you like to leave a message or schedule an appointment?`;
+            } else {
+              response = `${staff.name} is currently offline. Would you like to schedule an appointment instead?`;
+            }
+            return { response };
+          }
         }
-
         // Other college info
         if (control.action === 'answer_from_college_knowledge') {
           return { response: control.response_text };
@@ -1119,7 +1196,8 @@ Respond as Clara would - naturally, warmly, and professionally in the same langu
    */
   async getStaffAvailability(staff, timetable = null) {
     try {
-      if (!timetable) {
+      // Handle undefined _id
+      if (!timetable && staff._id) {
         timetable = await this.getStaffTimetable(staff._id);
       }
       
@@ -1131,6 +1209,24 @@ Respond as Clara would - naturally, warmly, and professionally in the same langu
       let currentStatus = 'Unknown';
       let canAcceptCall = false;
       
+      // Check if staff is online using the checker function
+      let isOnline = false;
+      if (this.onlineStaffChecker) {
+        // Try checking by all available identifiers
+        isOnline = (staff._id && this.onlineStaffChecker(staff._id)) || 
+                   (staff.email && this.onlineStaffChecker(staff.email)) || 
+                   (staff.shortName && this.onlineStaffChecker(staff.shortName)) ||
+                   (staff.name && this.onlineStaffChecker(staff.name));
+      }
+      
+      console.log(`🔍 Staff ${staff.name} online check:`, { 
+        staffId: staff._id, 
+        email: staff.email, 
+        shortName: staff.shortName,
+        name: staff.name,
+        isOnline 
+      });
+      
       if (timetable) {
         todaySchedule = timetable.getTodaySchedule();
         
@@ -1141,22 +1237,26 @@ Respond as Clara would - naturally, warmly, and professionally in the same langu
         
         if (currentEntry) {
           currentStatus = currentEntry.activity;
-          canAcceptCall = currentEntry.activity === 'Free' || currentEntry.activity === 'Office Hours';
+          canAcceptCall = isOnline && (currentEntry.activity === 'Free' || currentEntry.activity === 'Office Hours');
         } else {
-          currentStatus = 'Free';
-          canAcceptCall = true;
+          currentStatus = isOnline ? 'Free' : 'Offline';
+          canAcceptCall = isOnline;
         }
+      } else {
+        currentStatus = isOnline ? 'Free' : 'Offline';
+        canAcceptCall = isOnline;
       }
       
-      // Check if staff is online and available for calls
-      if (!staff.isOnline || !staff.isAvailableForCalls) {
+      // Override if staff is offline
+      if (!isOnline) {
         canAcceptCall = false;
-        currentStatus = staff.isOnline ? 'Not accepting calls' : 'Offline';
+        currentStatus = 'Offline';
       }
       
       return {
         status: currentStatus,
         canAcceptCall: canAcceptCall,
+        isOnline: isOnline,
         todaySchedule: todaySchedule,
         currentDay: currentDay,
         currentTime: currentTime
@@ -1166,6 +1266,7 @@ Respond as Clara would - naturally, warmly, and professionally in the same langu
       return {
         status: 'Unknown',
         canAcceptCall: false,
+        isOnline: false,
         todaySchedule: [],
         currentDay: 'Unknown',
         currentTime: 'Unknown'

@@ -12,6 +12,21 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
+// Global error handlers to surface crashes during development
+process.on('uncaughtException', (err) => {
+  console.error('💥 UNCAUGHT EXCEPTION - server will exit');
+  console.error(err && err.stack ? err.stack : err);
+  // give logs a moment then exit with non-zero
+  try { setTimeout(() => process.exit(1), 250); } catch (_) { process.exit(1); }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 UNHANDLED REJECTION - server will exit');
+  console.error('Reason:', reason);
+  console.error('Promise:', promise);
+  try { setTimeout(() => process.exit(1), 250); } catch (_) { process.exit(1); }
+});
+
 // Import models
 const User = require('./models/User');
 const Staff = require('./models/Staff');
@@ -20,11 +35,11 @@ const Appointment = require('./models/Appointment');
 const Conversation = require('./models/Conversation');
 const Call = require('./models/Call');
 const Session = require('./models/Session');
+const StaffCallLog = require('./models/StaffCallLog');
+const { getStaffCallLogModel } = require('./services/staffCollections');
 
 // Import services
 const ClaraAI = require('./services/claraAI');
-const SarvamAI = require('./services/sarvamAI');
-const SarvamTTS = require('./services/sarvamTTS');
 const { splitByScript } = require('./services/langSplit');
 const { routeVoice } = require('./services/voices');
 
@@ -52,6 +67,7 @@ const timetableRoutes = require('./routes/timetable');
 const callRoutes = require('./routes/calls');
 const appointmentRoutes = require('./routes/appointments');
 const sessionRoutes = require('./routes/sessions');
+const staffPortalRoutes = require('./routes/staffPortal');
 
 // Import staff profiles for demo/staff login support
 const staffProfiles = require('./staff-profiles.js');
@@ -255,16 +271,15 @@ const isCollegeQuery = (message) => {
     // Academic terms
     'admission', 'apply', 'enroll', 'join', 'fee', 'cost', 'price', 'tuition', 'scholarship',
     'department', 'course', 'branch', 'cse', 'mechanical', 'civil', 'ece', 'ise', 'it', 'cs',
-    'faculty', 'teacher', 'professor', 'lecturer', 'placement', 'job', 'career', 'salary',
+    'placement', 'job', 'career', 'salary',
     'event', 'fest', 'seminar', 'workshop', 'contact', 'phone', 'email', 'address',
     'sai vidya', 'engineering', 'college', 'university', 'institute', 'technology',
     // Academic queries
     'curriculum', 'syllabus', 'subjects', 'books', 'library', 'lab', 'laboratory',
     'exam', 'examination', 'test', 'result', 'grade', 'marks', 'cgpa', 'gpa',
     'hostel', 'accommodation', 'canteen', 'cafeteria', 'transport', 'bus',
-    // Information queries
-    'about', 'information', 'details', 'tell me', 'what is', 'how to', 'where is',
-    'when', 'timing', 'hours', 'location', 'directions', 'map'
+    // Information queries (only if NOT calling/meeting staff)
+    'facilities', 'campus', 'infrastructure', 'location', 'directions', 'map'
   ];
   
   const lowerMessage = message.toLowerCase();
@@ -282,6 +297,41 @@ const isCollegeQuery = (message) => {
   if (isGreeting) {
     console.log('✅ Detected as greeting, not college query');
     return false;
+  }
+  
+  // Check for staff-calling keywords - these should go to Clara AI, not College AI
+  const staffCallKeywords = [
+    'call', 'meet', 'meeting', 'talk', 'speak', 'connect', 'video call', 'appointment',
+    'set a meeting', 'schedule meeting', 'available', 'free', 'busy', 'timetable', 'schedule'
+  ];
+  
+  // Dynamically get all staff names from staff-profiles.js
+  const staffNameVariations = [];
+  staffProfiles.forEach(staff => {
+    // Add full name (lowercase)
+    staffNameVariations.push(staff.name.toLowerCase());
+    
+    // Add first name only (e.g., "Anitha" from "Prof. Anitha C S")
+    const firstName = staff.name.toLowerCase().replace(/^(prof\.|dr\.|mrs?\.|ms\.)\s*/i, '').split(/\s+/)[0];
+    if (firstName) staffNameVariations.push(firstName);
+    
+    // Add short name (e.g., "ACS")
+    if (staff.shortName) staffNameVariations.push(staff.shortName.toLowerCase());
+    
+    // Add email username (e.g., "anithacs" from "anithacs@gmail.com")
+    if (staff.email) {
+      const emailUsername = staff.email.split('@')[0].toLowerCase();
+      staffNameVariations.push(emailUsername);
+    }
+  });
+  
+  const hasStaffName = staffNameVariations.some(name => lowerMessage.includes(name));
+  const hasCallKeyword = staffCallKeywords.some(keyword => lowerMessage.includes(keyword));
+  
+  if (hasStaffName && hasCallKeyword) {
+    console.log('✅ Detected staff call request, routing to Clara AI not College AI');
+    console.log('📞 Matched staff name variation:', staffNameVariations.find(name => lowerMessage.includes(name)));
+    return false; // Route to Clara AI for handling
   }
   
   // Check for very short messages that are likely not college queries
@@ -382,12 +432,57 @@ app.post('/api/staff/call-request', async (req, res) => {
 app.get('/api/staff/status/:staffId', (req, res) => {
   const { staffId } = req.params;
   const isOnline = staffSessions.has(staffId);
-  
-  res.json({ 
-    staffId, 
-    isOnline, 
-    lastSeen: isOnline ? new Date() : null 
-  });
+
+  // Try resolve email from static profiles for lastSeen lookup
+  const profile = staffProfiles.find(s => s.shortName === staffId);
+  const staffEmail = profile?.email;
+  const nowStr = new Date().toISOString();
+
+  // Determine busy via activeCalls
+  let isBusy = false;
+  const staffSocketId = staffEmail ? staffEmailSessions.get(staffEmail) : null;
+  if (staffSocketId) {
+    for (const [, session] of activeCalls.entries()) {
+      if (session.staffSocketId === staffSocketId) { isBusy = true; break; }
+    }
+  }
+
+  // Attempt in-class via timetable if DB connected and we can resolve staff
+  let inClass = false;
+  (async () => {
+    try {
+      if (isDbConnected() && staffEmail) {
+        const staffDoc = await Staff.findOne({ email: staffEmail });
+        if (staffDoc) {
+          const tt = await StaffTimetable.findOne({ staffId: staffDoc._id.toString(), isActive: true }).sort({ lastUpdated: -1 });
+          if (tt?.entries?.length) {
+            const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+            const avail = checkTeacherAvailability(tt.entries, null);
+            if (avail && avail.isAvailable === false) inClass = true;
+          }
+        }
+      }
+    } catch (e) {
+      // ignore enrichment errors
+    } finally {
+      let status = 'offline';
+      if (isOnline) status = 'online';
+      if (inClass) status = 'in_class';
+      if (isBusy) status = 'busy';
+
+      res.json({
+        staffId,
+        staffEmail: staffEmail || null,
+        status,
+        isOnline,
+        isBusy,
+        inClass,
+        currentTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        lastSeen: !isOnline && staffEmail ? (lastSeenByEmail.get(staffEmail) || null) : null,
+        timestamp: nowStr
+      });
+    }
+  })();
 });
 
 // Static middleware already configured above
@@ -499,6 +594,8 @@ async function generateResponse(message, conversationId, responseLanguage = 'en'
 const connectedUsers = new Map(); // socketId -> user
 const waitingCalls = new Map(); // socketId -> call
 const activeCalls = new Map(); // callId -> call session
+// Track last seen timestamps for staff by email
+const lastSeenByEmail = new Map(); // staffEmail -> ISO timestamp
 // Map staff identifiers to socket ids. Keys can be DB _id or shortName (ACS, LDN, etc.)
 const staffSessions = new Map(); // staffKey -> socketId
 const videoCallRequests = new Map(); // requestId -> video call request
@@ -509,6 +606,7 @@ const pendingStaffCalls = new Map(); // staffId -> pending start-conversation ca
 const staffEmailSessions = new Map(); // staffEmail -> socketId
 const clientStaffSessions = new Map(); // clientId -> staffEmail
 const staffRooms = new Map(); // staffEmail -> Set of socketIds in room
+const incomingCallRequests = new Map(); // requestId -> { clientSocketId, clientId, clientName, staffEmail, timestamp }
 
 // Note: Removed hardcoded demo staff injection to ensure only real staff (from staff-profiles.js) appear
 
@@ -516,6 +614,52 @@ const clientSessions = new Map(); // socketId -> client session
 
 // Initialize Clara AI
 const claraAI = new ClaraAI();
+
+// Set up online staff checker for Clara AI
+claraAI.setOnlineStaffChecker((staffIdentifier) => {
+  if (!staffIdentifier) return false;
+  
+  const identifier = String(staffIdentifier).toLowerCase();
+  
+  // Check by shortName, email, or ID directly
+  if (staffSessions.has(staffIdentifier)) {
+    return true;
+  }
+  if (staffEmailSessions.has(staffIdentifier)) {
+    return true;
+  }
+  
+  // Check if any staff with this identifier is in staffSessions
+  for (const [key, socketId] of staffSessions.entries()) {
+    if (key === staffIdentifier || String(key).toLowerCase() === identifier) {
+      return true;
+    }
+  }
+  
+  // Check by name in staff profiles
+  const matchingProfile = staffProfiles.find(s => {
+    const lowerName = s.name.toLowerCase();
+    const lowerIdentifier = identifier;
+    
+    // Exact match
+    if (lowerName === lowerIdentifier) return true;
+    
+    // Name without prefix (e.g., "anitha c s" matches "Prof. Anitha C S")
+    const nameWithoutPrefix = lowerName.replace(/^(prof\.|dr\.|mrs?\.|ms\.)\s*/i, '');
+    if (nameWithoutPrefix === lowerIdentifier) return true;
+    
+    // Partial match
+    if (lowerName.includes(lowerIdentifier) || lowerIdentifier.includes(lowerName)) return true;
+    
+    // Check if staff with this name/email/shortName is online
+    if (s.email && staffEmailSessions.has(s.email)) return true;
+    if (s.shortName && staffSessions.has(s.shortName)) return true;
+    
+    return false;
+  });
+  
+  return !!matchingProfile;
+});
 
 // In-memory storage for demo mode
 const demoUsers = new Map();
@@ -620,6 +764,13 @@ io.on('connection', (socket) => {
         
         console.log(`📧 Staff registered with email: ${user.email}`);
         console.log(`📧 Current staff email sessions:`, Array.from(staffEmailSessions.keys()));
+
+        // Broadcast staff online status
+        io.emit('staff_status_update', {
+          staffEmail: user.email,
+          status: 'online',
+          timestamp: new Date().toISOString()
+        });
       }
 
       const token = jwt.sign(
@@ -678,6 +829,68 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       socket.emit('login-error', { message: 'Login failed' });
+    }
+  });
+
+  // Handle session restoration (page refresh)
+  socket.on('restore-session', async (data) => {
+    try {
+      const { staff } = data;
+      if (!staff || !staff.email) {
+        return;
+      }
+
+      console.log('🔄 Restoring session for:', staff.email);
+
+      // Find staff profile
+      const profile = staffProfiles.find(s => s.email.toLowerCase() === staff.email.toLowerCase());
+      if (!profile) {
+        return;
+      }
+
+      // Re-register staff in sessions
+      const user = {
+        _id: profile.shortName,
+        name: profile.name,
+        role: 'staff',
+        department: profile.department,
+        isAvailable: true,
+        lastActive: new Date(),
+        email: profile.email
+      };
+
+      connectedUsers.set(socket.id, user);
+      staffSessions.set(user._id.toString(), socket.id);
+      staffSessions.set(String(profile.shortName), socket.id);
+
+      if (user.email) {
+        staffEmailSessions.set(user.email, socket.id);
+        socket.join(user.email);
+        
+        if (!staffRooms.has(user.email)) {
+          staffRooms.set(user.email, new Set());
+        }
+        staffRooms.get(user.email).add(socket.id);
+        
+        console.log(`✅ Session restored for: ${user.email}`);
+
+        // Broadcast staff online status on session restore
+        io.emit('staff_status_update', {
+          staffEmail: user.email,
+          status: 'online',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Check for waiting calls
+      if (isDbConnected()) {
+        const waitingCallCount = await Call.countDocuments({ status: 'waiting' });
+        socket.emit('waiting-calls', { count: waitingCallCount });
+      } else {
+        socket.emit('waiting-calls', { count: waitingCalls.size });
+      }
+    } catch (error) {
+      console.error('Session restore error:', error);
     }
   });
 
@@ -1156,6 +1369,63 @@ io.on('connection', (socket) => {
         message: `🎉 Call completed! Clara is now back to full AI mode. You can ask me anything!`
       });
 
+      // Persist staff call log
+      try {
+        if (isDbConnected()) {
+          const staffInfo = connectedUsers.get(callSession.staffSocketId) || {};
+          const clientInfo = connectedUsers.get(callSession.clientSocketId) || {};
+          const staffEmail = staffInfo.email;
+          const durationSec = qrCodeData.duration || 0;
+          if (staffEmail) {
+            // Write to global call log (legacy)
+            await StaffCallLog.findOneAndUpdate(
+              { callId, staffEmail },
+              {
+                $setOnInsert: {
+                  type: 'incoming',
+                  caller: clientInfo.name || 'Client',
+                  callee: staffInfo.name || 'Staff',
+                  timestamp: callSession.startTime || new Date(),
+                  staffUsername: staffEmail.split('@')[0]
+                },
+                $set: {
+                  status: 'completed',
+                  duration: durationSec,
+                  metadata: { reason: reason || 'ended' }
+                }
+              },
+              { upsert: true, new: true }
+            );
+
+            // Also write to per-staff collection
+            try {
+              const username = (staffEmail.split('@')[0] || '').toLowerCase();
+              const CL = getStaffCallLogModel(username);
+              await CL.findOneAndUpdate(
+                { callId, staffEmail },
+                {
+                  $setOnInsert: {
+                    type: 'incoming',
+                    caller: clientInfo.name || 'Client',
+                    callee: staffInfo.name || 'Staff',
+                    timestamp: callSession.startTime || new Date(),
+                    staffUsername: username
+                  },
+                  $set: {
+                    status: 'completed',
+                    duration: durationSec,
+                    metadata: { reason: reason || 'ended' }
+                  }
+                },
+                { upsert: true, new: true }
+              );
+            } catch (_) {}
+          }
+        }
+      } catch (logErr) {
+        console.error('Failed to write StaffCallLog:', logErr.message);
+      }
+
       // Clean up call session
       activeCalls.delete(callId);
 
@@ -1237,9 +1507,9 @@ io.on('connection', (socket) => {
   // Handle video call request from Clara AI
   socket.on('video-call-request', async (data) => {
     try {
-      const { staffId, staffName, clientName, clientSocketId } = data;
+      let { staffId, staffName, staffEmail, staffDepartment, clientName, clientSocketId } = data;
       
-      console.log('🎥 Video call request received:', { staffId, staffName, clientName });
+      console.log('🎥 Video call request received:', { staffId, staffName, staffEmail, clientName });
       
       // Find staff member
       let staffSocketId = null;
@@ -1247,17 +1517,20 @@ io.on('connection', (socket) => {
       // Check in staff profiles first - more flexible matching
       const staffProfile = staffProfiles.find(s => {
         try {
+          // Email match (most reliable)
+          if (staffEmail && s.email && s.email.toLowerCase() === staffEmail.toLowerCase()) return true;
+          
           // Exact name match
           if (staffName && s.name.toLowerCase() === staffName.toLowerCase()) return true;
           
           // Partial name match (e.g., "Nagashree" matches "Dr. Nagashree N")
           if (staffName && s.name.toLowerCase().includes(staffName.toLowerCase())) return true;
           
-          // Email match
-          if (staffEmail && s.email && s.email.toLowerCase() === staffEmail.toLowerCase()) return true;
-          
           // Short name match (e.g., "NN" matches "Dr. Nagashree N")
           if (staffName && s.shortName && s.shortName.toLowerCase() === staffName.toLowerCase()) return true;
+          
+          // ID match
+          if (staffId && s.shortName && s.shortName === staffId) return true;
           
           return false;
         } catch (_) {
@@ -1267,10 +1540,16 @@ io.on('connection', (socket) => {
       
       if (staffProfile) {
         staffId = staffProfile.shortName;
+        staffName = staffProfile.name;
+        staffEmail = staffProfile.email;
+        staffDepartment = staffProfile.department;
         staffSocketId = staffSessions.get(staffId);
-        console.log('✅ Staff found:', { staffId, staffName: staffProfile.name, isOnline: !!staffSocketId });
+        console.log('✅ Staff found:', { staffId, staffName: staffProfile.name, email: staffEmail, isOnline: !!staffSocketId });
       } else {
-        console.log('❌ Staff not found in profiles. Available:', staffProfiles.map(s => ({ name: s.name, email: s.email, shortName: s.shortName })));
+        console.log('❌ Staff not found in profiles. Searching for:', { staffId, staffName, staffEmail });
+        console.log('Available staff:', staffProfiles.map(s => ({ name: s.name, email: s.email, shortName: s.shortName })));
+        socket.emit('video-call-error', { message: `Staff member "${staffName}" not found` });
+        return;
       }
       
       if (!staffId) {
@@ -1764,22 +2043,41 @@ io.on('connection', (socket) => {
   socket.on('call-request', ({ clientId, staffEmail }) => {
     try {
       console.log(`📞 Call request from ${clientId} to ${staffEmail}`);
-      
-      // Find client info
+
       const clientInfo = connectedUsers.get(socket.id);
       const clientName = clientInfo ? clientInfo.name : 'Client';
-      
-      // Send call request to specific staff
-      io.to(staffEmail).emit('incoming-call', {
+
+      // Generate and store a pending request
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      incomingCallRequests.set(requestId, {
+        requestId,
+        clientSocketId: socket.id,
         clientId,
         clientName,
         staffEmail,
         timestamp: new Date()
       });
-      
-      socket.emit('call-request-sent', { 
-        staffEmail, 
-        message: `Call request sent to ${staffEmail}` 
+
+      const payload = {
+        requestId,
+        clientId,
+        clientName,
+        staffEmail,
+        timestamp: new Date()
+      };
+
+      // Notify only the intended staff (by email room) with the requestId
+      io.to(staffEmail).emit('incoming-call', payload);
+      // Also notify direct socket if we have it
+      const staffSocketId = staffEmailSessions.get(staffEmail);
+      if (staffSocketId) {
+        io.to(staffSocketId).emit('incoming-call', payload);
+      }
+
+      socket.emit('call-request-sent', {
+        staffEmail,
+        requestId,
+        message: `Call request sent to ${staffEmail}`
       });
     } catch (error) {
       console.error('Error sending call request:', error);
@@ -1803,6 +2101,70 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Error handling call response:', error);
       socket.emit('call-response-error', { message: 'Failed to handle call response' });
+    }
+  });
+
+  // New unified accept/reject for email-targeted requests
+  socket.on('call-accepted', async ({ requestId, staffEmail, staffName }) => {
+    try {
+      const pending = incomingCallRequests.get(requestId);
+      if (!pending) {
+        console.warn(`⚠️ call-accepted for unknown requestId: ${requestId}`);
+        return;
+      }
+
+      // Create a new call session
+      const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      activeCalls.set(callId, {
+        callId,
+        clientSocketId: pending.clientSocketId,
+        staffSocketId: socket.id,
+        startTime: new Date(),
+        status: 'in-progress'
+      });
+
+      // Notify client and staff to begin WebRTC
+      io.to(pending.clientSocketId).emit('call-accepted', {
+        callId,
+        staffEmail: staffEmail,
+        staffName: staffName || 'Staff'
+      });
+      io.to(socket.id).emit('call-started', {
+        callId,
+        clientId: pending.clientId,
+        clientName: pending.clientName || 'Client'
+      });
+
+      // Broadcast staff busy status when call is accepted
+      try {
+        if (staffEmail) {
+          io.emit('staff_status_update', {
+            staffEmail,
+            status: 'busy',
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (_) {}
+
+      // Cleanup pending request
+      incomingCallRequests.delete(requestId);
+    } catch (error) {
+      console.error('Error in call-accepted handler:', error);
+      socket.emit('call-error', { message: 'Failed to accept call' });
+    }
+  });
+
+  socket.on('call-rejected', ({ requestId, staffEmail, reason }) => {
+    try {
+      const pending = incomingCallRequests.get(requestId);
+      if (!pending) return;
+      io.to(pending.clientSocketId).emit('call-rejected', {
+        staffEmail,
+        message: reason || 'Staff declined the call'
+      });
+      incomingCallRequests.delete(requestId);
+    } catch (error) {
+      console.error('Error in call-rejected handler:', error);
     }
   });
 
@@ -1872,6 +2234,16 @@ io.on('connection', (socket) => {
               staffRooms.delete(user.email);
             }
           }
+
+          // Track last seen and broadcast offline status
+          const seen = new Date().toISOString();
+          lastSeenByEmail.set(user.email, seen);
+          io.emit('staff_status_update', {
+            staffEmail: user.email,
+            status: 'offline',
+            lastSeen: seen,
+            timestamp: seen
+          });
         }
         
         if (isDbConnected() && typeof user.save === 'function') {
@@ -2396,18 +2768,121 @@ io.on('connection', (socket) => {
     try {
       const { teacherName, day, clientId } = data;
       
-      if (!isDbConnected()) {
+      console.log('🔍 Checking availability for teacher:', teacherName);
+
+      // First, check staff-profiles.js for matching staff
+      const staffProfile = staffProfiles.find(s => {
+        const lowerTeacherName = teacherName.toLowerCase();
+        const lowerStaffName = s.name.toLowerCase();
+        
+        // Exact match
+        if (lowerStaffName === lowerTeacherName) return true;
+        
+        // Partial match (e.g., "Anita" matches "Prof. Anitha C S")
+        if (lowerStaffName.includes(lowerTeacherName) || lowerTeacherName.includes(lowerStaffName)) return true;
+        
+        // First name match
+        const firstName = lowerStaffName.replace(/^(prof\.|dr\.|mrs?\.|ms\.)\s*/i, '').split(/\s+/)[0];
+        if (firstName === lowerTeacherName || lowerTeacherName.includes(firstName)) return true;
+        
+        // Email match
+        if (s.email && s.email.toLowerCase().includes(lowerTeacherName.replace(/['\s]/g, ''))) return true;
+        
+        // Short name match
+        if (s.shortName && s.shortName.toLowerCase() === lowerTeacherName) return true;
+        
+        return false;
+      });
+
+      if (staffProfile) {
+        console.log('✅ Found teacher in staff-profiles:', staffProfile.name);
+
+        const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+
+        const staffEmail = staffProfile.email;
+        const staffSocketId = staffEmail ? staffEmailSessions.get(staffEmail) : null;
+        const isOnlineBasic = staffSessions.has(staffProfile.shortName) || staffEmailSessions.has(staffEmail);
+
+        // Determine if in an active call (busy)
+        let isBusy = false;
+        if (staffSocketId) {
+          for (const [, session] of activeCalls.entries()) {
+            if (session.staffSocketId === staffSocketId) { isBusy = true; break; }
+          }
+        }
+
+        // Optionally enrich with timetable-based "in class" if DB has entries
+        let inClass = false;
+        if (isDbConnected()) {
+          try {
+            const staffDoc = await Staff.findOne({ $or: [
+              { email: staffEmail },
+              { name: new RegExp(staffProfile.name, 'i') }
+            ]});
+            if (staffDoc) {
+              const staffTimetable = await StaffTimetable.findOne({ staffId: staffDoc._id.toString(), isActive: true }).sort({ lastUpdated: -1 });
+              if (staffTimetable?.entries?.length) {
+                const avail = checkTeacherAvailability(staffTimetable.entries, day);
+                // If checking current day (or unspecified) and not available => in class
+                const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+                const targetDay = day || today;
+                if ((!day || day === today) && avail && avail.isAvailable === false) {
+                  inClass = true;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('⚠️ Timetable enrichment failed:', e.message);
+          }
+        }
+
+        // Compute status label
+        let status = 'offline';
+        if (isOnlineBasic) status = 'online';
+        if (inClass) status = 'in_class';
+        if (isBusy) status = 'busy';
+
+        // Compose smart message
+        let message;
+        if (status === 'online') {
+          message = `${staffProfile.name} is currently available for video calls.`;
+        } else if (status === 'busy') {
+          message = `${staffProfile.name} is currently on a call. Please try again soon.`;
+        } else if (status === 'in_class') {
+          message = `${staffProfile.name} is currently in a class. They will be available soon.`;
+        } else {
+          const lastSeen = staffEmail ? lastSeenByEmail.get(staffEmail) : null;
+          message = `${staffProfile.name} is currently offline.${lastSeen ? ` Last seen at ${new Date(lastSeen).toLocaleTimeString()}.` : ''}`;
+        }
+
         socket.emit('teacher_availability_response', { 
-          success: false, 
-          message: 'Database not connected',
+          success: true, 
+          status,
+          isAvailable: status === 'online',
+          isOnline: isOnlineBasic,
+          isBusy,
+          inClass,
+          message,
+          teacherName: staffProfile.name,
+          staffEmail: staffEmail,
+          staffDepartment: staffProfile.department,
+          currentTime: nowStr,
           clientId: clientId 
         });
         return;
       }
 
-      console.log('🔍 Checking availability for teacher:', teacherName);
+      // If not in staff-profiles, check database
+      if (!isDbConnected()) {
+        socket.emit('teacher_availability_response', { 
+          success: false, 
+          message: `Teacher "${teacherName}" not found. Please check the name and try again.`,
+          clientId: clientId 
+        });
+        return;
+      }
 
-      // Find staff by name (case insensitive)
+      // Find staff by name (case insensitive) in database
       const staff = await Staff.findOne({ 
         name: { $regex: new RegExp(teacherName, 'i') } 
       });
@@ -2483,6 +2958,7 @@ io.on('connection', (socket) => {
       
       socket.emit('teacher_availability_response', { 
         success: true, 
+        status: availability.isAvailable ? 'online' : 'in_class',
         isAvailable: availability.isAvailable,
         message: availability.message,
         teacherName: staff.name,
@@ -3147,6 +3623,8 @@ app.use('/api/calls', callRoutes);
 // Appointment management routes
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/sessions', sessionRoutes);
+// Staff portal routes (auth, timetable CRUD, call logs)
+app.use('/api/staff', staffPortalRoutes);
 
 // Staff login using staff-profiles.js data (for staff interface)
 app.post('/api/staff/login', async (req, res) => {
@@ -3364,6 +3842,11 @@ app.get('/staff-interface', (req, res) => {
   res.sendFile(__dirname + '/public/staff-interface.html');
 });
 
+// Dynamic per-staff interface route (public HTML; APIs are protected)
+app.get('/staff-interface/:username', (req, res) => {
+  res.sendFile(__dirname + '/public/staff-interface.html');
+});
+
 // Video call functionality is now integrated into main interfaces
 
 // Staff registration route
@@ -3547,281 +4030,7 @@ app.post('/api/tts/speak', async (req, res) => {
   }
 });
 
-// Initialize Sarvam AI services
-const sarvamAI = new SarvamAI();
-const sarvamTTS = new SarvamTTS();
-
-// Sarvam AI Speech-to-Text endpoint
-app.post('/api/speech/transcribe', async (req, res) => {
-  try {
-    const { audio, audioFormat, language } = req.body;
-    
-    if (!audio) {
-      return res.status(400).json({
-        success: false,
-        error: 'Audio data is required'
-      });
-    }
-
-    console.log('🎤 Received speech transcription request');
-    console.log(`📊 Audio size: ${audio.length} bytes`);
-    console.log(`🎵 Format: ${audioFormat || 'wav'}`);
-    console.log(`🌐 Language: ${language || 'auto-detect'}`);
-
-    // Convert base64 audio to buffer
-    let audioBuffer;
-    try {
-      audioBuffer = Buffer.from(audio, 'base64');
-    } catch (error) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid audio data format'
-      });
-    }
-
-    // Use Sarvam AI for transcription
-    const result = await sarvamAI.transcribeAudio(audioBuffer, audioFormat || 'wav', language);
-    
-    if (result.success) {
-      console.log('✅ Sarvam AI transcription successful:', result.text.substring(0, 50) + '...');
-    } else {
-      console.log('❌ Sarvam AI transcription failed:', result.error);
-    }
-
-    res.json(result);
-
-  } catch (error) {
-    console.error('❌ Speech transcription error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error during transcription',
-      fallback: 'browser_speech'
-    });
-  }
-});
-
-// Sarvam AI test connection endpoint
-app.get('/api/speech/test', async (req, res) => {
-  try {
-    const result = await sarvamAI.testConnection();
-    res.json(result);
-  } catch (error) {
-    console.error('❌ Sarvam AI test error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to test Sarvam AI connection'
-    });
-  }
-});
-
-// Get Sarvam AI usage statistics
-app.get('/api/speech/usage', (req, res) => {
-  try {
-    const usage = sarvamAI.getUsageStats();
-    res.json({
-      success: true,
-      usage: usage,
-      isEnabled: sarvamAI.isAvailable()
-    });
-  } catch (error) {
-    console.error('❌ Usage stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get usage statistics'
-    });
-  }
-});
-
-// Sarvam TTS endpoint (uses native Indian voices for best quality & naturalness)
-app.post('/api/sarvam-tts/speak', async (req, res) => {
-  try {
-    const { text, language, pitch, pace, loudness, emotionalContext } = req.body || {};
-    
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required and must be a non-empty string'
-      });
-    }
-
-    console.log('🔊 Received Sarvam TTS request');
-    console.log(`📝 Text: ${text.substring(0, 100)}...`);
-    
-    // Make language codes exact and consistent - detect if not provided
-    let lang = language;
-    if (!lang || typeof lang !== 'string' || !lang.trim()) {
-        // Simple language detection from text
-        if (/[\u0900-\u097F]/.test(text)) lang = 'hi-IN';
-        else if (/[\u0C80-\u0CFF]/.test(text)) lang = 'kn-IN';
-        else if (/[\u0C00-\u0C7F]/.test(text)) lang = 'te-IN';
-        else if (/[\u0B80-\u0BFF]/.test(text)) lang = 'ta-IN';
-        else if (/[\u0D00-\u0D7F]/.test(text)) lang = 'ml-IN';
-        else lang = 'en-US'; // Default to neutral English
-    }
-    
-    // Map language codes - English stays en-US (not en-IN), others map to -IN
-    const langMap = {
-        'en': 'en-US', 'en-US': 'en-US', 'en-GB': 'en-US', // English stays neutral
-        'hi': 'hi-IN', 'hi-IN': 'hi-IN',
-        'kn': 'kn-IN', 'kn-IN': 'kn-IN',
-        'te': 'te-IN', 'te-IN': 'te-IN',
-        'ta': 'ta-IN', 'ta-IN': 'ta-IN',
-        'ml': 'ml-IN', 'ml-IN': 'ml-IN',
-        'mr': 'mr-IN', 'mr-IN': 'mr-IN',
-        'gu': 'gu-IN', 'gu-IN': 'gu-IN',
-        'bn': 'bn-IN', 'bn-IN': 'bn-IN',
-        'pa': 'pa-IN', 'pa-IN': 'pa-IN',
-        'od': 'od-IN', 'od-IN': 'od-IN'
-    };
-    
-    // CRITICAL: Strict validation - NEVER default Indian languages to English
-    // If detected as Indic script but language not mapped, preserve the detected Indic language
-    let sarvamLang = langMap[lang];
-    if (!sarvamLang) {
-        // If text contains Indic script, preserve it (don't default to English)
-        if (/[\u0900-\u097F\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]/.test(text)) {
-            // Infer from script if language not explicitly provided
-            if (/[\u0900-\u097F]/.test(text)) sarvamLang = 'hi-IN';
-            else if (/[\u0C80-\u0CFF]/.test(text)) sarvamLang = 'kn-IN';
-            else if (/[\u0C00-\u0C7F]/.test(text)) sarvamLang = 'te-IN';
-            else if (/[\u0B80-\u0BFF]/.test(text)) sarvamLang = 'ta-IN';
-            else if (/[\u0D00-\u0D7F]/.test(text)) sarvamLang = 'ml-IN';
-            else sarvamLang = lang || 'hi-IN'; // Preserve detected language, default to Hindi for Indic
-        } else {
-            sarvamLang = 'en-US'; // Only default to English for non-Indic text
-        }
-    }
-    
-    console.log(`🌐 Language: ${lang} -> ${sarvamLang}`);
-
-    // Use provided emotional context or detect it automatically
-    const detectedContext = emotionalContext || sarvamTTS.detectEmotionalContext(text);
-    console.log(`🎭 Emotional context: ${detectedContext}`);
-    
-    // Handle mixed-language text: split and preserve English accent
-    const segments = splitByScript(text);
-    const { format, sample_rate, bitrate_kbps } = req.body;
-    
-    // If mixed-language (multiple segments), synthesize each chunk separately
-    if (segments.length > 1) {
-        console.log(`🔄 Detected mixed-language text with ${segments.length} segments`);
-        const audios = [];
-        
-        for (const seg of segments) {
-            const segLang = (seg.type === "latin")
-                ? "en-US"            // force neutral English for Latin chunks
-                : sarvamLang;        // use detected Indic language for Indic chunks
-            
-            const result = await sarvamTTS.generateSpeech(seg.text, segLang, {
-                pitch: pitch,
-                pace: pace,
-                loudness: loudness,
-                format: format || 'mp3',
-                sample_rate: sample_rate || 48000,
-                bitrate_kbps: bitrate_kbps || 192
-            }, detectedContext);
-            
-            if (result?.success && result?.audio) {
-                audios.push(result.audio);
-            }
-        }
-        
-        if (audios.length > 0) {
-            console.log(`✅ Mixed-language synthesis: ${audios.length} parts generated`);
-            return res.json({ 
-                success: true, 
-                parts: audios,
-                provider: 'sarvam',
-                language: sarvamLang
-            });
-        } else {
-            console.log('❌ Mixed-language synthesis failed');
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to synthesize mixed-language text',
-                fallback: 'edge_tts'
-            });
-        }
-    }
-    
-    // Single-language text: use standard flow with native voices
-    const result = await sarvamTTS.generateSpeech(text, sarvamLang, {
-      pitch: pitch,
-      pace: pace,
-      loudness: loudness,
-      format: format || 'mp3', // Default to MP3 for compatibility
-      sample_rate: sample_rate || 48000, // Default to 48kHz for quality
-      bitrate_kbps: bitrate_kbps || 192 // Default bitrate for MP3
-    }, detectedContext);
-    
-    if (result.success) {
-      console.log('✅ Sarvam TTS generation successful');
-      console.log(`🎤 Voice: ${result.voice} | Model: ${result.model}`);
-    } else {
-      console.log('❌ Sarvam TTS generation failed:', result.error);
-    }
-
-    res.json(result);
-
-  } catch (error) {
-    console.error('❌ Sarvam TTS error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error during TTS generation',
-      fallback: 'edge_tts'
-    });
-  }
-});
-
-// Sarvam TTS test connection endpoint
-app.get('/api/sarvam-tts/test', async (req, res) => {
-  try {
-    const result = await sarvamTTS.testConnection();
-    res.json(result);
-  } catch (error) {
-    console.error('❌ Sarvam TTS test error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to test Sarvam TTS connection'
-    });
-  }
-});
-
-// Get Sarvam TTS supported languages
-app.get('/api/sarvam-tts/languages', (req, res) => {
-  try {
-    const languages = sarvamTTS.getSupportedLanguages();
-    res.json({
-      success: true,
-      languages: languages,
-      isEnabled: sarvamTTS.isAvailable()
-    });
-  } catch (error) {
-    console.error('❌ Languages error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get supported languages'
-    });
-  }
-});
-
-// Get Sarvam TTS usage statistics
-app.get('/api/sarvam-tts/usage', (req, res) => {
-  try {
-    const usage = sarvamTTS.getUsageStats();
-    res.json({
-      success: true,
-      usage: usage,
-      isEnabled: sarvamTTS.isAvailable()
-    });
-  } catch (error) {
-    console.error('❌ TTS usage stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get TTS usage statistics'
-    });
-  }
-});
+// Edge TTS endpoint - the primary TTS service (no external dependencies)
 
 // Get available voices endpoint
 app.get('/api/tts/voices', (req, res) => {

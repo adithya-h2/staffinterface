@@ -24,7 +24,3 @@ BCRYPT_ROUNDS=12
 # n8n Integration (optional)
 N8N_WEBHOOK_URL=http://localhost:5678/webhook/073f1fed-1718-42b7-be10-5374376414ec
 N8N_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNGY5MDgzYS0wYmE5LTQzNzAtODQwNy1jNDAyNGJhNjhiOTQiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzU1NDI1MjE3LCJleHAiOjE3NTc5OTUyMDB9.9LDEMc4I-Z2i5kQI-tSYKSdRNhaBX3Jbnj6h6gM1Ty8
-
-# Sarvam AI Configuration
-SARVAM_API_KEY=your_sarvam_api_key_here
-SARVAM_API_URL=https://api.sarvam.ai

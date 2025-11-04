@@ -13,6 +13,13 @@ const staffSchema = new mongoose.Schema({
     trim: true,
     lowercase: true
   },
+  username: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    lowercase: true
+  },
   password: {
     type: String,
     required: true
@@ -114,6 +121,7 @@ const staffSchema = new mongoose.Schema({
 staffSchema.index({ name: 'text', department: 1, designation: 1 });
 staffSchema.index({ isAvailable: 1, isOnline: 1 });
 staffSchema.index({ employeeId: 1 });
+staffSchema.index({ username: 1 });
 
 // Method to check if staff is available for calls
 staffSchema.methods.canAcceptCall = function() {

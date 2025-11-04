@@ -2,18 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="format-detection" content="telephone=no">
-    <title>Staff Interface - Sai Vidya Institute</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - Sai Vidya Institute</title>
     <script src="/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/framer-motion@10/dist/framer-motion.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -21,361 +16,514 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --primary-blue: #4461F2;
+            --bg-dark: #0B0E1A;
+            --bg-card: #151824;
+            --bg-sidebar: #11141F;
+            --border-color: #1E2234;
+            --text-primary: #FFFFFF;
+            --text-secondary: #8B93B0;
+            --text-muted: #5A6178;
+            --accent-cyan: #22D3EE;
+            --accent-purple: #8B5CF6;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.4);
+        }
+
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
             overflow-x: hidden;
         }
 
-        .container {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Sidebar - Exact match to image */
+        /* Sidebar */
         .sidebar {
-            width: 280px;
-            background: #1a1a2e;
-            border-right: 1px solid #16213e;
-            padding: 2rem 0;
             position: fixed;
+            left: 0;
+            top: 0;
+            width: 280px;
             height: 100vh;
-            overflow-y: auto;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            padding: 24px 0;
             z-index: 1000;
+            overflow-y: auto;
         }
 
-        .sidebar-header {
-            padding: 0 2rem 2rem;
-            border-bottom: 1px solid #16213e;
-            margin-bottom: 2rem;
+        .profile-section {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px;
         }
 
-        .profile {
+        .profile-card {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 12px;
         }
 
         .profile-avatar {
-            width: 60px;
-            height: 60px;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
-            background: #ef4444;
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            font-weight: bold;
+            font-size: 20px;
+            font-weight: 700;
             color: white;
+            flex-shrink: 0;
         }
 
-        .profile-info h2 {
-            font-size: 1.25rem;
+        .profile-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .profile-name {
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 0.25rem;
-            color: white;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .profile-info p {
-            color: #94a3b8;
-            font-size: 0.875rem;
+        .profile-dept {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
+        /* Navigation */
         .nav-menu {
-            list-style: none;
-            padding: 0 1rem;
+            padding: 0 12px;
         }
 
         .nav-item {
-            margin-bottom: 0.5rem;
+            margin-bottom: 4px;
         }
 
         .nav-link {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
-            color: #cbd5e1;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: var(--text-secondary);
             text-decoration: none;
             transition: all 0.2s ease;
+            font-size: 15px;
             font-weight: 500;
         }
 
         .nav-link:hover {
-            background: rgba(59, 130, 246, 0.1);
-            color: #3b82f6;
+            background: rgba(68, 97, 242, 0.08);
+            color: var(--primary-blue);
         }
 
         .nav-link.active {
-            background: #22d3ee;
-            color: #0f172a;
+            background: var(--primary-blue);
+            color: white;
+            box-shadow: 0 4px 12px rgba(68, 97, 242, 0.3);
         }
 
-        .nav-link i {
-            font-size: 1.125rem;
+        .nav-icon {
             width: 20px;
+            font-size: 18px;
+            text-align: center;
         }
 
-        /* Main Content - Exact match to image */
-        .main-content {
-            flex: 1;
+        /* Main Content */
+        .main-wrapper {
             margin-left: 280px;
-            padding: 2rem;
-            background: #0f172a;
+            min-height: 100vh;
         }
 
-        .header {
+        .top-bar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 20px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #16213e;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
-        .header h1 {
-            font-size: 2rem;
+        .page-title-section h1 {
+            font-size: 28px;
             font-weight: 700;
-            color: white;
+            margin-bottom: 4px;
         }
 
-        .header-actions {
+        .page-subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .top-bar-actions {
             display: flex;
-            gap: 1rem;
             align-items: center;
+            gap: 12px;
         }
 
         .status-badge {
-            padding: 0.5rem 1rem;
-            border-radius: 2rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            background: rgba(34, 197, 94, 0.1);
-            color: #22c55e;
-            border: 1px solid rgba(34, 197, 94, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
         }
 
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 0.5rem;
+        .logout-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
         }
 
-        .btn-primary {
-            background: #3b82f6;
-            color: white;
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
         }
 
-        .btn-primary:hover {
-            background: #2563eb;
+        /* Dashboard Content */
+        .dashboard-content {
+            padding: 32px;
         }
 
-        .btn-secondary {
-            background: rgba(148, 163, 184, 0.1);
-            color: #cbd5e1;
-            border: 1px solid rgba(148, 163, 184, 0.2);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(148, 163, 184, 0.2);
-        }
-
-        /* Grid Layout - Exact 2x2 from image */
         .dashboard-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .dashboard-row-2 {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 24px;
         }
 
         .card {
-            background: #1a1a2e;
-            border: 1px solid #16213e;
-            border-radius: 12px;
-            padding: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--shadow);
             transition: all 0.3s ease;
         }
 
         .card:hover {
-            border-color: #22d3ee;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
         }
 
         .card-header {
             display: flex;
             align-items: center;
             gap: 12px;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #16213e;
+            margin-bottom: 24px;
         }
 
         .card-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 20px;
+        }
+
+        .card-icon.blue {
+            background: linear-gradient(135deg, #4461F2, #6B8AFF);
+            color: white;
+        }
+
+        .card-icon.green {
+            background: linear-gradient(135deg, #10B981, #34D399);
+            color: white;
+        }
+
+        .card-icon.orange {
+            background: linear-gradient(135deg, #F59E0B, #FBBF24);
+            color: white;
+        }
+
+        .card-icon.purple {
+            background: linear-gradient(135deg, #8B5CF6, #A78BFA);
             color: white;
         }
 
         .card-title {
             font-size: 18px;
-            font-weight: 600;
-            color: white;
-            margin: 0;
-        }
-
-        .card-content {
-            color: #cbd5e1;
-            line-height: 1.6;
-            min-height: 200px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Login Overlay */
-        .login-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        }
-
-        .login-card {
-            background: #1a1a2e;
-            border: 1px solid #16213e;
-            border-radius: 1.5rem;
-            padding: 3rem;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .login-header h2 {
-            font-size: 1.875rem;
             font-weight: 700;
-            margin-bottom: 0.5rem;
-            color: white;
         }
 
-        .login-header p {
-            color: #94a3b8;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #e2e8f0;
-        }
-
-        .form-group input {
+        /* Weekly Timetable */
+        .timetable-table {
             width: 100%;
-            padding: 0.875rem 1rem;
-            border: 1px solid #16213e;
-            border-radius: 0.75rem;
-            background: #0f172a;
-            color: #e2e8f0;
-            font-size: 1rem;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+        }
+
+        .timetable-table thead th {
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .timetable-table tbody tr {
+            background: rgba(30, 34, 52, 0.4);
+            border-radius: 8px;
+        }
+
+        .timetable-table tbody td {
+            padding: 12px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .timetable-table tbody td:first-child {
+            border-radius: 8px 0 0 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .timetable-table tbody td:last-child {
+            border-radius: 0 8px 8px 0;
+        }
+
+        .schedule-block {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .schedule-blue {
+            background: rgba(68, 97, 242, 0.15);
+            color: #6B8AFF;
+            border: 1px solid rgba(68, 97, 242, 0.25);
+        }
+
+        /* Call Updates */
+        .call-updates-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .call-update-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(30, 34, 52, 0.4);
+            border-radius: 10px;
             transition: all 0.2s ease;
         }
 
-        .form-group input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        .call-update-item:hover {
+            background: rgba(30, 34, 52, 0.6);
         }
 
-        .form-group input::placeholder {
-            color: #64748b;
+        .call-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--primary-blue));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            flex-shrink: 0;
         }
 
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .sidebar {
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
-            }
-
-            .sidebar.open {
-                transform: translateX(0);
-            }
-
-            .main-content {
-                margin-left: 0;
-            }
-
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
+        .call-info {
+            flex: 1;
         }
 
-        @media (max-width: 768px) {
-            .main-content {
-                padding: 1rem;
-            }
-
-            .header h1 {
-                font-size: 1.5rem;
-            }
-
-            .card {
-                padding: 1rem;
-            }
+        .call-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
         }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
+        .call-time {
+            font-size: 12px;
+            color: var(--text-secondary);
         }
 
-        ::-webkit-scrollbar-track {
-            background: #0f172a;
+        .call-status {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background: #3b82f6;
-            border-radius: 3px;
+        .status-completed {
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--success);
         }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: #2563eb;
+        .status-scheduled {
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--warning);
         }
 
-        /* Animation */
-        @keyframes fadeIn {
+        .status-progress {
+            background: rgba(68, 97, 242, 0.12);
+            color: var(--primary-blue);
+        }
+
+        /* Call Log */
+        .call-log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .call-log-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(30, 34, 52, 0.4);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .call-log-item:hover {
+            background: rgba(30, 34, 52, 0.6);
+        }
+
+        .call-log-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .call-log-icon.outgoing {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+        }
+
+        .call-log-icon.incoming {
+            background: rgba(68, 97, 242, 0.15);
+            color: var(--primary-blue);
+        }
+
+        .call-log-icon.missed {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .call-log-content {
+            flex: 1;
+        }
+
+        .call-log-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .call-log-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Appointments */
+        .appointment-card {
+            padding: 16px;
+            background: rgba(30, 34, 52, 0.4);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 3px solid var(--primary-blue);
+        }
+
+        .appointment-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .appointment-time {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Glassmorphism Incoming Call Modal */
+        .call-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .call-modal-overlay.active {
+            display: flex;
+        }
+
+        .call-modal {
+            background: rgba(21, 24, 36, 0.85);
+            backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 420px;
+            width: 90%;
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(30px);
             }
             to {
                 opacity: 1;
@@ -383,2079 +531,1653 @@
             }
         }
 
-        .fade-in {
-            animation: fadeIn 0.6s ease-out;
-        }
-
-        /* Call Updates Specific Styles */
-        .call-updates {
-            min-height: 300px;
-        }
-
-        .call-updates .card-content {
-            min-height: 250px;
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            justify-content: flex-start;
-            padding: 0;
-        }
-
-        .call-updates-list {
-            max-height: 250px;
-            overflow-y: auto;
-            padding: 10px;
-        }
-
-        .call-update-item {
-            background: #16213e;
-            border: 1px solid #1e293b;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 8px;
+        .call-icon-pulse {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 0 0 rgba(68, 97, 242, 0.7);
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(68, 97, 242, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 20px rgba(68, 97, 242, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(68, 97, 242, 0);
+            }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+        }
+
+        .call-modal-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .call-modal-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .call-modal-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+
+        .call-btn {
+            flex: 1;
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             transition: all 0.2s ease;
         }
 
-        .call-update-item:hover {
-            background: #1e293b;
-            border-color: #3b82f6;
-        }
-
-        .call-update-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
+        .call-btn-accept {
+            background: linear-gradient(135deg, var(--success), #34D399);
             color: white;
         }
 
-        .call-update-icon.incoming {
-            background: #10b981;
+        .call-btn-accept:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
         }
 
-        .call-update-icon.accepted {
-            background: #3b82f6;
-        }
-
-        .call-update-icon.declined {
-            background: #ef4444;
-        }
-
-        .call-update-content {
-            flex: 1;
-        }
-
-        .call-update-title {
-            font-weight: 600;
+        .call-btn-decline {
+            background: linear-gradient(135deg, var(--danger), #F87171);
             color: white;
-            margin: 0 0 4px 0;
-            font-size: 14px;
         }
 
-        .call-update-details {
-            color: #94a3b8;
-            font-size: 12px;
-            margin: 0;
+        .call-btn-decline:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
         }
 
-        .call-update-time {
-            color: #64748b;
-            font-size: 11px;
-            margin: 0;
-        }
-
-        /* Video Call Display Styles */
-        .video-call-display {
+        /* Video Call Container */
+        .video-call-container {
             position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.95);
-            backdrop-filter: blur(10px);
+            width: 100vw;
+            height: 100vh;
+            background: #000;
             z-index: 10000;
             display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .video-call-display.hidden {
-            display: none;
-        }
-
-        .video-call-content {
-            background: #1a1a2e;
-            border: 1px solid #16213e;
-            border-radius: 20px;
-            padding: 30px;
-            width: 90%;
-            max-width: 600px;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            flex-direction: column;
         }
 
         .video-call-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #16213e;
+            padding: 20px 30px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
         }
 
-        .video-call-header .caller-info h3 {
+        .video-call-header h3 {
             color: white;
-            margin: 0 0 5px 0;
-            font-size: 18px;
-        }
-
-        .video-call-header .caller-info p {
-            color: #94a3b8;
-            margin: 0;
-            font-size: 14px;
-        }
-
-        .video-container {
-            background: #0f172a;
-            border-radius: 12px;
-            padding: 40px;
-            text-align: center;
-            border: 1px solid #16213e;
-        }
-
-        .video-placeholder {
-            color: #cbd5e1;
-        }
-
-        .video-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-
-        .video-placeholder p {
-            margin: 5px 0;
-            font-size: 16px;
-        }
-
-        #videoCallStatus {
-            color: #10b981;
+            font-size: 20px;
             font-weight: 600;
         }
 
-        /* Timetable Grid Styles - Exact Match to Image */
-        .timetable-grid {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.875rem;
-            background: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            display: block !important;
-            visibility: visible !important;
-        }
-
-        .timetable-header {
-            display: grid;
-            grid-template-columns: 100px repeat(9, 1fr);
-            gap: 0;
-            margin-bottom: 0;
-        }
-
-        .timetable-body {
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
-
-        .day-row {
-            display: grid;
-            grid-template-columns: 100px repeat(9, 1fr);
-            gap: 0;
-        }
-
-        .time-header {
-            background: #4a5568;
-            color: #ffffff;
-            padding: 12px 8px;
-            text-align: center;
-            font-weight: 700;
-            border: 1px solid #2d3748;
-            font-size: 0.8rem;
-            letter-spacing: 0.5px;
-        }
-
-        .time-slot {
-            background: #4a5568;
-            color: #ffffff;
-            padding: 12px 8px;
-            text-align: center;
-            font-weight: 700;
-            border: 1px solid #2d3748;
-            font-size: 0.75rem;
-            letter-spacing: 0.3px;
-        }
-
-        .day-name {
-            background: #4a5568;
-            color: #ffffff;
-            padding: 12px 8px;
-            text-align: center;
-            font-weight: 700;
-            border: 1px solid #2d3748;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.85rem;
-            letter-spacing: 0.5px;
-        }
-
-        .day-slot {
-            background: #f7fafc;
-            color: #4a5568;
-            padding: 12px 8px;
-            text-align: center;
-            border: 1px solid #e2e8f0;
+        .end-call-btn {
+            background: linear-gradient(135deg, var(--danger), #F87171);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 0.8rem;
-            min-height: 50px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-weight: 500;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .end-call-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .video-streams {
             position: relative;
-        }
-
-        .day-slot:hover {
-            background: #edf2f7;
-            color: #2d3748;
-            transform: scale(1.02);
-            z-index: 10;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .day-slot.coffee-break {
-            background: #fbbf24;
-            color: #1f2937;
-            font-weight: 700;
-            cursor: default;
-        }
-
-        .day-slot.coffee-break:hover {
-            background: #f59e0b;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .day-slot.lunch-break {
-            background: #f59e0b;
-            color: #1f2937;
-            font-weight: 700;
-            cursor: default;
-        }
-
-        .day-slot.lunch-break:hover {
-            background: #d97706;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .day-slot.has-subject {
-            background: #667eea;
-            color: #ffffff;
-            font-weight: 600;
-            border: 2px solid #5a67d8;
-        }
-
-        .day-slot.has-subject:hover {
-            background: #5a67d8;
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .day-slot.has-subject::after {
-            content: '✏️';
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            font-size: 0.7rem;
-            opacity: 0.7;
-        }
-
-        .day-slot.empty-slot {
-            background: #f7fafc;
-            color: #a0aec0;
-            font-style: italic;
-        }
-
-        .day-slot.empty-slot:hover {
-            background: #edf2f7;
-            color: #4a5568;
-            font-style: normal;
-        }
-
-        /* Animation keyframes */
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-        }
-
-        /* Enhanced timetable display */
-        .timetable-container {
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-            display: block !important;
-            visibility: visible !important;
-        }
-
-        .timetable-header-section {
+            flex: 1;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
+            justify-content: center;
         }
 
-        .timetable-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #2d3748;
-            margin: 0;
+        #remoteVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
-        .timetable-actions {
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        .btn-refresh {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-        }
-
-        .btn-refresh:hover {
-            background: #5a67d8;
-            transform: translateY(-1px);
-        }
-
-        .btn-clear {
-            background: #e53e3e;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-        }
-
-        .btn-clear:hover {
-            background: #c53030;
-            transform: translateY(-1px);
-        }
-
-        /* iOS-style Call Notification */
-        .call-notification {
-            position: fixed;
+        #localVideo {
+            position: absolute;
             bottom: 20px;
             right: 20px;
-            width: 320px;
-            background: white;
+            width: 240px;
+            height: 180px;
             border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            z-index: 10000;
-            animation: slideInUp 0.3s ease;
-            border: 1px solid #e2e8f0;
+            object-fit: cover;
+            border: 3px solid var(--primary);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
-        .call-notification.hidden {
+        .video-controls {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        .control-btn.disabled {
+            background: var(--danger);
+        }
+
+        /* Login Overlay */
+        .login-overlay {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(11, 14, 26, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-overlay.hidden {
             display: none;
         }
 
-        .call-notification-content {
-            padding: 20px;
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 48px;
+            width: 90%;
+            max-width: 440px;
+            box-shadow: var(--shadow-lg);
         }
 
-        .call-notification-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
         }
 
-        .caller-avatar {
-            width: 50px;
-            height: 50px;
-            background: #667eea;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
+        .login-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(30, 34, 52, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            background: rgba(30, 34, 52, 0.7);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
             color: white;
-        }
-
-        .caller-info h3 {
-            margin: 0;
+            border: none;
+            border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
-            color: #2d3748;
-        }
-
-        .caller-info p {
-            margin: 4px 0 0 0;
-            font-size: 14px;
-            color: #718096;
-        }
-
-        .call-notification-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-        }
-
-        .call-btn {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
             cursor: pointer;
             transition: all 0.2s ease;
         }
 
-        .call-btn.decline {
-            background: #e53e3e;
-            color: white;
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(68, 97, 242, 0.3);
         }
 
-        .call-btn.decline:hover {
-            background: #c53030;
-            transform: scale(1.05);
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
         }
 
-        .call-btn.accept {
-            background: #48bb78;
-            color: white;
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
         }
 
-        .call-btn.accept:hover {
-            background: #38a169;
-            transform: scale(1.05);
+        ::-webkit-scrollbar-thumb {
+            background: rgba(68, 97, 242, 0.5);
+            border-radius: 3px;
         }
 
-        @keyframes slideInUp {
-            from {
-                transform: translateY(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-blue);
         }
 
-        /* Responsive timetable */
+        /* Responsive */
         @media (max-width: 1200px) {
-            .timetable-header,
-            .day-row {
-                grid-template-columns: 70px repeat(9, 1fr);
+            .dashboard-grid {
+                grid-template-columns: 1fr;
             }
-            
-            .time-slot,
-            .day-slot {
-                font-size: 0.7rem;
-                padding: 0.5rem 0.25rem;
+            .dashboard-row-2 {
+                grid-template-columns: 1fr;
             }
         }
 
         @media (max-width: 768px) {
-            .timetable-grid {
-                font-size: 0.75rem;
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
             }
-            
-            .timetable-header,
-            .day-row {
-                grid-template-columns: 60px repeat(9, 1fr);
+            .sidebar.mobile-open {
+                transform: translateX(0);
             }
-            
-            .time-slot,
-            .day-slot {
-                font-size: 0.65rem;
-                padding: 0.25rem;
-                min-height: 30px;
+            .main-wrapper {
+                margin-left: 0;
             }
+            .dashboard-content {
+                padding: 20px;
+            }
+            .top-bar {
+                padding: 16px 20px;
+            }
+        }
+
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Login Overlay -->
-        <div id="loginOverlay" class="login-overlay">
-            <div class="login-card">
-                <div class="login-header">
-                    <h2>Staff Login</h2>
-                    <p>Enter your credentials to access the dashboard</p>
-                </div>
-                <form id="loginForm">
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="email" id="email" placeholder="Enter your email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="password">Password</label>
-                        <input type="password" id="password" placeholder="Enter your password" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
-                </form>
-                <div class="credentials-list" style="margin-top: 20px; padding: 15px; background: #0f172a; border: 1px solid #16213e; border-radius: 8px;">
-                    <h4 style="color: #22d3ee; margin-bottom: 10px;">Demo Credentials:</h4>
-                    <div class="credential-item" style="padding: 5px 0; border-bottom: 1px solid #16213e; color: #94a3b8;">Email: anithacs@gmail.com | Password: demo123</div>
-                    <div class="credential-item" style="padding: 5px 0; border-bottom: 1px solid #16213e; color: #94a3b8;">Email: lakshmidurga@gmail.com | Password: demo123</div>
-                    <div class="credential-item" style="padding: 5px 0; color: #94a3b8;">Email: gdhivyasri@gmail.com | Password: demo123</div>
-                </div>
+    <!-- Login Overlay -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="login-header">
+                <h2>Staff Login</h2>
+                <p>Welcome back! Please sign in to continue</p>
             </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="emailInput">Email</label>
+                    <input type="email" id="emailInput" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label for="passwordInput">Password</label>
+                    <input type="password" id="passwordInput" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="login-btn">Sign In</button>
+            </form>
         </div>
+    </div>
 
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="profile">
-                    <div class="profile-avatar" id="profileAvatar">PS</div>
-                    <div class="profile-info">
-                        <h2 id="profileName">Prof. Anitha C S</h2>
-                        <p id="profileDept">Computer Science</p>
-                        <p id="profileBranch">Engineering</p>
-                    </div>
-                </div>
+    <!-- Incoming Call Modal -->
+    <div class="call-modal-overlay" id="incomingCallModal">
+        <div class="call-modal">
+            <div class="call-icon-pulse">
+                <i class="fas fa-video"></i>
             </div>
-            <nav>
-                <ul class="nav-menu">
-                    <li class="nav-item">
-                        <a href="#" class="nav-link active" data-tab="profile">
-                            <i class="fas fa-user"></i>
-                            Profile
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" data-tab="settings">
-                            <i class="fas fa-cog"></i>
-                            Settings
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" data-tab="team">
-                            <i class="fas fa-users"></i>
-                            Team Directory
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" data-tab="tasks">
-                            <i class="fas fa-tasks"></i>
-                            Task Management
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" data-tab="leave">
-                            <i class="fas fa-calendar-times"></i>
-                            Leave Requests
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" data-tab="resources">
-                            <i class="fas fa-folder"></i>
-                            Resources
-                        </a>
-                    </li>
-                </ul>
-            </nav>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="header">
-                <h1>Staff Dashboard</h1>
-                <div class="header-actions">
-                    <div class="status-badge" id="connectionStatus">Connected</div>
-                    <button class="btn btn-secondary" id="logoutBtn">Logout</button>
-                </div>
-            </div>
-
-            <!-- Dashboard Grid - Exact 2x2 layout from image -->
-            <div class="dashboard-grid">
-                <!-- Weekly Timetable -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-icon" style="background: #3b82f6;">
-                            <i class="fas fa-calendar"></i>
-                        </div>
-                        <h2 class="card-title">Weekly Timetable</h2>
-                    </div>
-                    <div class="card-content">
-                        <div class="timetable-container">
-                            <div class="timetable-header-section">
-                                <h3 class="timetable-title">Class Schedule</h3>
-                                <div class="timetable-actions">
-                                    <button class="btn-refresh" onclick="loadTimetableData()">
-                                        <i class="fas fa-sync-alt"></i> Refresh
-                                    </button>
-                                    <button class="btn-clear" onclick="clearAllTimetableEntries()">
-                                        <i class="fas fa-trash"></i> Clear All
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="timetableGrid" class="timetable-grid">
-                            <div class="timetable-header">
-                                <div class="time-header">Time</div>
-                                <div class="time-slot">8:30 - 9:25</div>
-                                <div class="time-slot">9:25 - 10:20</div>
-                                <div class="time-slot">10:20 - 10:40</div>
-                                <div class="time-slot">10:40 - 11:35</div>
-                                <div class="time-slot">11:35 - 12:30</div>
-                                <div class="time-slot">12:30 - 1:15</div>
-                                <div class="time-slot">1:15 - 2:10</div>
-                                <div class="time-slot">2:10 - 3:05</div>
-                                <div class="time-slot">3:05 - 4:10</div>
-                            </div>
-                            <div class="timetable-body">
-                                <div class="day-row">
-                                    <div class="day-name">Monday</div>
-                                    <div class="day-slot" data-day="Monday" data-time="8:30-9:25">Enter subject</div>
-                                    <div class="day-slot" data-day="Monday" data-time="9:25-10:20">Enter subject</div>
-                                    <div class="day-slot coffee-break" data-day="Monday" data-time="10:20-10:40">Coffee Break</div>
-                                    <div class="day-slot" data-day="Monday" data-time="10:40-11:35">Enter subject</div>
-                                    <div class="day-slot" data-day="Monday" data-time="11:35-12:30">Enter subject</div>
-                                    <div class="day-slot lunch-break" data-day="Monday" data-time="12:30-1:15">Lunch Break</div>
-                                    <div class="day-slot" data-day="Monday" data-time="1:15-2:10">Enter subject</div>
-                                    <div class="day-slot" data-day="Monday" data-time="2:10-3:05">Enter subject</div>
-                                    <div class="day-slot" data-day="Monday" data-time="3:05-4:10">Enter subject</div>
-                                </div>
-                                <div class="day-row">
-                                    <div class="day-name">Tuesday</div>
-                                    <div class="day-slot" data-day="Tuesday" data-time="8:30-9:25">Enter subject</div>
-                                    <div class="day-slot" data-day="Tuesday" data-time="9:25-10:20">Enter subject</div>
-                                    <div class="day-slot coffee-break" data-day="Tuesday" data-time="10:20-10:40">Coffee Break</div>
-                                    <div class="day-slot" data-day="Tuesday" data-time="10:40-11:35">Enter subject</div>
-                                    <div class="day-slot" data-day="Tuesday" data-time="11:35-12:30">Enter subject</div>
-                                    <div class="day-slot lunch-break" data-day="Tuesday" data-time="12:30-1:15">Lunch Break</div>
-                                    <div class="day-slot" data-day="Tuesday" data-time="1:15-2:10">Enter subject</div>
-                                    <div class="day-slot" data-day="Tuesday" data-time="2:10-3:05">Enter subject</div>
-                                    <div class="day-slot" data-day="Tuesday" data-time="3:05-4:10">Enter subject</div>
-                                </div>
-                                <div class="day-row">
-                                    <div class="day-name">Wednesday</div>
-                                    <div class="day-slot" data-day="Wednesday" data-time="8:30-9:25">Enter subject</div>
-                                    <div class="day-slot" data-day="Wednesday" data-time="9:25-10:20">Enter subject</div>
-                                    <div class="day-slot coffee-break" data-day="Wednesday" data-time="10:20-10:40">Coffee Break</div>
-                                    <div class="day-slot" data-day="Wednesday" data-time="10:40-11:35">Enter subject</div>
-                                    <div class="day-slot" data-day="Wednesday" data-time="11:35-12:30">Enter subject</div>
-                                    <div class="day-slot lunch-break" data-day="Wednesday" data-time="12:30-1:15">Lunch Break</div>
-                                    <div class="day-slot" data-day="Wednesday" data-time="1:15-2:10">Enter subject</div>
-                                    <div class="day-slot" data-day="Wednesday" data-time="2:10-3:05">Enter subject</div>
-                                    <div class="day-slot" data-day="Wednesday" data-time="3:05-4:10">Enter subject</div>
-                                </div>
-                                <div class="day-row">
-                                    <div class="day-name">Thursday</div>
-                                    <div class="day-slot" data-day="Thursday" data-time="8:30-9:25">Enter subject</div>
-                                    <div class="day-slot" data-day="Thursday" data-time="9:25-10:20">Enter subject</div>
-                                    <div class="day-slot coffee-break" data-day="Thursday" data-time="10:20-10:40">Coffee Break</div>
-                                    <div class="day-slot" data-day="Thursday" data-time="10:40-11:35">Enter subject</div>
-                                    <div class="day-slot" data-day="Thursday" data-time="11:35-12:30">Enter subject</div>
-                                    <div class="day-slot lunch-break" data-day="Thursday" data-time="12:30-1:15">Lunch Break</div>
-                                    <div class="day-slot" data-day="Thursday" data-time="1:15-2:10">Enter subject</div>
-                                    <div class="day-slot" data-day="Thursday" data-time="2:10-3:05">Enter subject</div>
-                                    <div class="day-slot" data-day="Thursday" data-time="3:05-4:10">Enter subject</div>
-                                </div>
-                                <div class="day-row">
-                                    <div class="day-name">Friday</div>
-                                    <div class="day-slot" data-day="Friday" data-time="8:30-9:25">Enter subject</div>
-                                    <div class="day-slot" data-day="Friday" data-time="9:25-10:20">Enter subject</div>
-                                    <div class="day-slot coffee-break" data-day="Friday" data-time="10:20-10:40">Coffee Break</div>
-                                    <div class="day-slot" data-day="Friday" data-time="10:40-11:35">Enter subject</div>
-                                    <div class="day-slot" data-day="Friday" data-time="11:35-12:30">Enter subject</div>
-                                    <div class="day-slot lunch-break" data-day="Friday" data-time="12:30-1:15">Lunch Break</div>
-                                    <div class="day-slot" data-day="Friday" data-time="1:15-2:10">Enter subject</div>
-                                    <div class="day-slot" data-day="Friday" data-time="2:10-3:05">Enter subject</div>
-                                    <div class="day-slot" data-day="Friday" data-time="3:05-4:10">Enter subject</div>
-                                </div>
-                                <div class="day-row">
-                                    <div class="day-name">Saturday</div>
-                                    <div class="day-slot" data-day="Saturday" data-time="8:30-9:25">Enter subject</div>
-                                    <div class="day-slot" data-day="Saturday" data-time="9:25-10:20">Enter subject</div>
-                                    <div class="day-slot coffee-break" data-day="Saturday" data-time="10:20-10:40">Coffee Break</div>
-                                    <div class="day-slot" data-day="Saturday" data-time="10:40-11:35">Enter subject</div>
-                                    <div class="day-slot" data-day="Saturday" data-time="11:35-12:30">Enter subject</div>
-                                    <div class="day-slot lunch-break" data-day="Saturday" data-time="12:30-1:15">Lunch Break</div>
-                                    <div class="day-slot" data-day="Saturday" data-time="1:15-2:10">Enter subject</div>
-                                    <div class="day-slot" data-day="Saturday" data-time="2:10-3:05">Enter subject</div>
-                                    <div class="day-slot" data-day="Saturday" data-time="3:05-4:10">Enter subject</div>
-                                </div>
-                            </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Call Updates -->
-                <div class="card call-updates">
-                    <div class="card-header">
-                        <div class="card-icon" style="background: #48bb78;">
-                            <i class="fas fa-phone"></i>
-                        </div>
-                        <h2 class="card-title">Call Updates</h2>
-                    </div>
-                    <div id="callUpdatesContainer" class="card-content">
-                        <!-- Call Updates Container will be rendered here -->
-                    </div>
-                </div>
-
-                <!-- Call Log -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-icon" style="background: #f59e0b;">
-                            <i class="fas fa-phone-alt"></i>
-                        </div>
-                        <h2 class="card-title">Call Log</h2>
-                    </div>
-                    <div class="card-content">
-                        <p>Login to view call log</p>
-                    </div>
-                </div>
-
-                <!-- Appointments -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-icon" style="background: #8b5cf6;">
-                            <i class="fas fa-calendar-check"></i>
-                        </div>
-                        <h2 class="card-title">Appointments</h2>
-                    </div>
-                    <div class="card-content">
-                        <p>No appointments scheduled</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Call Updates Container -->
-            <div class="card call-updates">
-                <div class="card-header">
-                    <div class="card-icon" style="background: #10b981;">
-                        <i class="fas fa-phone"></i>
-                    </div>
-                    <h2 class="card-title">Call Updates</h2>
-                </div>
-                <div class="card-content">
-                    <div id="callUpdatesList" class="call-updates-list">
-                        <div style="text-align: center; color: #64748b; padding: 20px;">
-                            <i class="fas fa-phone-slash" style="font-size: 24px; margin-bottom: 8px;"></i>
-                            <p>No call updates yet</p>
-                        </div>
-                    </div>
-                </div>
+            <h3 class="call-modal-title">Incoming Video Call</h3>
+            <p class="call-modal-subtitle" id="callerName">Client Name</p>
+            <div class="call-modal-actions">
+                <button class="call-btn call-btn-accept" id="acceptCallBtn">
+                    <i class="fas fa-check"></i>
+                    Accept
+                </button>
+                <button class="call-btn call-btn-decline" id="declineCallBtn">
+                    <i class="fas fa-times"></i>
+                    Decline
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Font Awesome -->
-    <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+    <!-- Video Call Container -->
+    <div class="video-call-container" id="videoCallContainer" style="display: none;">
+        <div class="video-call-header">
+            <h3 id="callParticipantName">Video Call</h3>
+            <button class="end-call-btn" id="endCallBtn">
+                <i class="fas fa-phone-slash"></i>
+                End Call
+            </button>
+        </div>
+        <div class="video-streams">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="video-controls">
+            <button class="control-btn" id="toggleVideoBtn">
+                <i class="fas fa-video"></i>
+            </button>
+            <button class="control-btn" id="toggleAudioBtn">
+                <i class="fas fa-microphone"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="profile-section">
+                <div class="profile-card">
+                    <div class="profile-avatar" id="profileAvatar">AC</div>
+                    <div class="profile-info">
+                        <div class="profile-name" id="profileName">Prof. Anitha C S</div>
+                        <div class="profile-dept" id="profileDept">Computer Science Engineering</div>
+                    </div>
+                </div>
+            </div>
+            <nav class="nav-menu">
+                <div class="nav-item">
+                    <a href="#" class="nav-link active" data-page="dashboard">
+                        <i class="fas fa-th-large nav-icon"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="timetable">
+                        <i class="fas fa-calendar-alt nav-icon"></i>
+                        <span>Timetable</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="calls">
+                        <i class="fas fa-phone nav-icon"></i>
+                        <span>Calls</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="appointments">
+                        <i class="fas fa-calendar-check nav-icon"></i>
+                        <span>Appointments</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="notifications">
+                        <i class="fas fa-bell nav-icon"></i>
+                        <span>Notifications</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="settings">
+                        <i class="fas fa-cog nav-icon"></i>
+                        <span>Settings</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Wrapper -->
+        <div class="main-wrapper">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="page-title-section">
+                    <h1>Staff Dashboard</h1>
+                    <p class="page-subtitle">Welcome back, Here's what's happening today.</p>
+                </div>
+                <div class="top-bar-actions">
+                    <div class="status-badge">
+                        <i class="fas fa-circle" style="font-size: 8px; margin-right: 6px;"></i>
+                        Connected
+                    </div>
+                    <button class="logout-btn" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <!-- Dashboard Page -->
+                <div id="dashboardPage" style="display: block;">
+                <!-- First Row: Timetable + Call Updates -->
+                <div class="dashboard-grid">
+                    <!-- Weekly Timetable -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon blue">
+                                <i class="fas fa-calendar-week"></i>
+                            </div>
+                            <h3 class="card-title">Weekly Timetable</h3>
+                        </div>
+                        <div id="timetableContent">
+                            <table class="timetable-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Mon</th>
+                                        <th>Tue</th>
+                                        <th>Wed</th>
+                                        <th>Thu</th>
+                                        <th>Fri</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>09:00</td>
+                                        <td><span class="schedule-block schedule-blue">Team Standup</span></td>
+                                        <td></td>
+                                        <td><span class="schedule-block schedule-blue">1:1 with Sarah</span></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td>11:00</td>
+                                        <td></td>
+                                        <td><span class="schedule-block schedule-blue">Client Review</span></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td>14:00</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td><span class="schedule-block schedule-blue">Sprint Planning</span></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td>15:00</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td><span class="schedule-block schedule-blue">Team Lunch</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Call Updates -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon green">
+                                <i class="fas fa-phone-alt"></i>
+                            </div>
+                            <h3 class="card-title">Call Updates</h3>
+                        </div>
+                        <div class="call-updates-list" id="callUpdatesList">
+                            <div class="call-update-item">
+                                <div class="call-avatar">M</div>
+                                <div class="call-info">
+                                    <div class="call-name">Michael Chen</div>
+                                    <div class="call-time">10:30 AM • Video</div>
+                                </div>
+                                <span class="call-status status-completed">Completed</span>
+                            </div>
+                            <div class="call-update-item">
+                                <div class="call-avatar">E</div>
+                                <div class="call-info">
+                                    <div class="call-name">Emma Wilson</div>
+                                    <div class="call-time">11:45 AM • Audio</div>
+                                </div>
+                                <span class="call-status status-scheduled">Scheduled</span>
+                            </div>
+                            <div class="call-update-item">
+                                <div class="call-avatar">D</div>
+                                <div class="call-info">
+                                    <div class="call-name">David Park</div>
+                                    <div class="call-time">2:30 PM • Video</div>
+                                </div>
+                                <span class="call-status status-progress">In Progress</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Second Row: Call Log + Appointments -->
+                <div class="dashboard-row-2">
+                    <!-- Call Log -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon orange">
+                                <i class="fas fa-history"></i>
+                            </div>
+                            <h3 class="card-title">Call Log</h3>
+                        </div>
+                        <div class="call-log-list" id="callLogList">
+                            <div class="call-log-item">
+                                <div class="call-log-icon outgoing">
+                                    <i class="fas fa-phone-alt"></i>
+                                </div>
+                                <div class="call-log-content">
+                                    <div class="call-log-name">Alex Thompson</div>
+                                    <div class="call-log-time">15 min • 1 hour ago</div>
+                                </div>
+                                <span style="color: var(--text-muted); font-size: 12px;">Outgoing</span>
+                            </div>
+                            <div class="call-log-item">
+                                <div class="call-log-icon incoming">
+                                    <i class="fas fa-phone-alt"></i>
+                                </div>
+                                <div class="call-log-content">
+                                    <div class="call-log-name">Rachel Green</div>
+                                    <div class="call-log-time">8 min • 2 hours ago</div>
+                                </div>
+                                <span style="color: var(--text-muted); font-size: 12px;">Incoming</span>
+                            </div>
+                            <div class="call-log-item">
+                                <div class="call-log-icon outgoing">
+                                    <i class="fas fa-phone-alt"></i>
+                                </div>
+                                <div class="call-log-content">
+                                    <div class="call-log-name">James Wilson</div>
+                                    <div class="call-log-time">22 min • 3 hours ago</div>
+                                </div>
+                                <span style="color: var(--text-muted); font-size: 12px;">Outgoing</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Appointments -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon purple">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                            <h3 class="card-title">Appointments</h3>
+                        </div>
+                        <div id="appointmentsList">
+                            <div class="appointment-card">
+                                <div class="appointment-title">Quarterly Review</div>
+                                <div class="appointment-time">
+                                    <i class="far fa-clock"></i>
+                                    Today, 2:00 PM
+                                </div>
+                            </div>
+                            <div class="appointment-card">
+                                <div class="appointment-title">Product Demo</div>
+                                <div class="appointment-time">
+                                    <i class="far fa-clock"></i>
+                                    Tomorrow, 10:00 AM
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+            <!-- End Dashboard Page -->
+
+            <!-- Timetable Page -->
+            <div id="timetablePage" style="display: none;">
+                <div class="card">
+                    <div class="card-header" style="justify-content: space-between; align-items: center;">
+                        <div style="display:flex;gap:12px;align-items:center">
+                            <div class="card-icon blue">
+                                <i class="fas fa-calendar-week"></i>
+                            </div>
+                            <h3 class="card-title">My Timetable</h3>
+                        </div>
+                        <div>
+                            <button id="editTimetableBtn" class="logout-btn" style="margin-right:8px;background:rgba(59,130,246,0.15);color:#60a5fa;border-color:rgba(59,130,246,0.3)"><i class="fas fa-pencil-alt"></i> Edit</button>
+                            <button id="saveTimetableBtn" class="logout-btn" style="display:none;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3)"><i class="fas fa-save"></i> Save</button>
+                        </div>
+                    </div>
+                    <div id="fullTimetableContent" style="padding: 20px;">
+                        <p id="ttLoading" style="color: #94a3b8;">Loading timetable...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calls Page -->
+            <div id="callsPage" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon cyan">
+                            <i class="fas fa-phone"></i>
+                        </div>
+                        <h3 class="card-title">Call History</h3>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p style="color: #94a3b8;">No calls yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Appointments Page -->
+            <div id="appointmentsPage" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon purple">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                        <h3 class="card-title">All Appointments</h3>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p style="color: #94a3b8;">No appointments scheduled.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications Page -->
+            <div id="notificationsPage" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon orange">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <h3 class="card-title">Notifications</h3>
+                    </div>
+                    <div style="padding: 20px;">
+                        <p style="color: #94a3b8;">No new notifications.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="settingsPage" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon blue">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <h3 class="card-title">Settings</h3>
+                    </div>
+                    <div style="padding: 20px;">
+                        <h4 style="color: white; margin-bottom: 15px;">Profile Settings</h4>
+                        <p style="color: #94a3b8;">Manage your profile and preferences.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
     <script>
-        // Global variables
+        // Socket.IO Connection
+        const socket = io();
+
+        // Auth/session state
+        const AUTH_TOKEN_KEY = 'staffToken';
+        const AUTH_USER_KEY = 'staffUser';
         let currentStaff = null;
-        let socket = null;
+        let pendingCallRequest = null;
 
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeSocket();
-            setupEventListeners();
-            checkAuthStatus();
-        });
+        const loginOverlay = document.getElementById('loginOverlay');
+        const loginForm = document.getElementById('loginForm');
 
-        // Socket initialization
-        function initializeSocket() {
-            socket = io();
-            
-            socket.on('connect', () => {
-                updateConnectionStatus('Connected', 'connected');
-            });
-
-            socket.on('disconnect', () => {
-                updateConnectionStatus('Disconnected', 'disconnected');
-            });
-
-            // Call event listeners
-            socket.on('call_initiated', (data) => {
-                console.log('Call initiated:', data);
-            });
-
-            socket.on('call_accepted', (data) => {
-                console.log('Call accepted:', data);
-            });
-
-            socket.on('call_declined', (data) => {
-                console.log('Call declined:', data);
-            });
-
-            socket.on('call_ended', (data) => {
-                console.log('Call ended:', data);
-            });
-
-            // Timetable event listeners
-            socket.on('timetable_entries', (data) => {
-                console.log('Received timetable entries:', data);
-                displayTimetableEntries(data.entries);
-            });
-
-            socket.on('timetable_entry_added', (data) => {
-                console.log('Timetable entry added:', data);
-                loadTimetableData();
-            });
-
-            socket.on('timetable_entry_updated', (data) => {
-                console.log('Timetable entry updated:', data);
-                loadTimetableData();
-            });
-
-            socket.on('timetable_entry_deleted', (data) => {
-                console.log('Timetable entry deleted:', data);
-                loadTimetableData();
-            });
-
-            socket.on('timetable_cleared', (data) => {
-                console.log('Timetable cleared:', data);
-                clearTimetableSlots();
-                showNotification(data.message, 'info');
-            });
-
-            // New email-based call system event listeners
-            socket.on('incoming-call', (data) => {
-                console.log('📞 Incoming call:', data);
-                showCallNotification(data);
-            });
-
-            socket.on('new-client', (data) => {
-                console.log('👤 New client connected:', data);
-                showNotification(`New client connected: ${data.clientId}`, 'info');
-            });
-
-            socket.on('receive-message', (data) => {
-                console.log('💬 Message received:', data);
-                showNotification(`Message from ${data.clientId}: ${data.message}`, 'info');
-            });
-
-            // WebRTC call request handler
-            socket.on('webrtc-call-request', (data) => {
-                console.log('🎥 WebRTC call request received:', data);
-                console.log('🎥 Call ID:', data.callId);
-                console.log('🎥 Client Name:', data.clientName);
-                console.log('🎥 Staff Email:', data.staffEmail);
-                console.log('🎥 Broadcast:', data.broadcast);
-                
-                // Show popup notification
-                showWebRTCCallNotification(data);
-                
-                // Also add to call updates container
-                addCallUpdate({
-                    type: 'webrtc-call-request',
-                    callId: data.callId,
-                    clientName: data.clientName,
-                    clientId: data.clientId,
-                    staffEmail: data.staffEmail,
-                    staffName: data.staffName,
-                    timestamp: data.timestamp,
-                    status: 'incoming'
-                });
-            });
-
-            // Call updates handler
-            socket.on('call-update', (data) => {
-                console.log('📞 Call update received:', data);
-                addCallUpdate(data);
-            });
-
-            // Handle incoming video call requests from client
-            socket.on('video-call-request', (data) => {
-                console.log('🎥 Video call request received:', data);
-                showCallNotification({
-                    callId: data.requestId,
-                    clientName: data.clientName,
-                    clientId: data.clientId,
-                    type: 'video-call'
-                });
-            });
-
-            // Test function to add a sample call update (for debugging)
-            window.testCallUpdate = function() {
-                addCallUpdate({
-                    type: 'webrtc-call-request',
-                    callId: 'test_call_123',
-                    clientName: 'Test Client',
-                    clientId: 'test_client_123',
-                    staffEmail: 'test@example.com',
-                    staffName: 'Test Staff',
-                    timestamp: new Date(),
-                    status: 'incoming'
-                });
-            };
-
-            // WebRTC call response handler
-            socket.on('webrtc-call-response', (data) => {
-                console.log('📞 WebRTC call response:', data);
-                if (data.accepted) {
-                    showNotification('WebRTC call accepted! Starting video call...', 'success');
-                    // Show the GMeet-style video call interface
-                    showVideoCallInterface({
-                        callId: data.callId,
-                        clientName: data.clientName || 'Client',
-                        clientId: data.clientId
-                    });
-                } else {
-                    showNotification('WebRTC call declined', 'info');
-                }
-            });
-
-            // WebRTC signaling handlers
-            socket.on('call_offer', async (data) => {
-                try {
-                    console.log('📞 Received call offer:', data);
-                    if (peerConnection) {
-                        await peerConnection.setRemoteDescription(data.offer);
-                        const answer = await peerConnection.createAnswer();
-                        await peerConnection.setLocalDescription(answer);
-                        
-                        socket.emit('call_answer', {
-                            callId: data.callId,
-                            answer: answer
-                        });
-                        console.log('📤 WebRTC answer sent');
-                    }
-                } catch (error) {
-                    console.error('❌ Error handling call offer:', error);
-                }
-            });
-
-            // Staff is the answerer. Ignore call_answer unless staff created an offer (should not happen).
-            socket.on('call_answer', async (data) => {
-                try {
-                    console.log('📞 Received call answer (staff side - normally ignored):', data);
-                    if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
-                        await peerConnection.setRemoteDescription(data.answer);
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Staff ignored call_answer due to signaling state:', peerConnection?.signalingState, error?.message);
-                }
-            });
-
-            socket.on('ice_candidate', async (data) => {
-                try {
-                    console.log('🧊 Received ICE candidate:', data);
-                    if (peerConnection) {
-                        await peerConnection.addIceCandidate(data.candidate);
-                    }
-                } catch (error) {
-                    console.error('❌ Error handling ICE candidate:', error);
-                }
-            });
+        // Helpers
+        function getUsername(u){
+            if (!u) return null;
+            return (u.username || (u.email ? u.email.split('@')[0] : '') || '').toLowerCase();
         }
 
-        // Event listeners
-        function setupEventListeners() {
-            // Login form
-            document.getElementById('loginForm').addEventListener('submit', handleLogin);
-            
-            // Logout button
-            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-            
-            // Tab navigation
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    switchTab(link.dataset.tab);
-                });
+        function authHeaders(){
+            const token = localStorage.getItem(AUTH_TOKEN_KEY);
+            return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+        }
+
+        async function apiFetch(path, options={}){
+            const res = await fetch(path, {
+                ...options,
+                headers: { ...authHeaders(), ...(options.headers||{}) }
             });
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
         }
 
-        // Authentication with permanent login
-        function checkAuthStatus() {
-            const token = localStorage.getItem('staffToken');
-            const staffData = localStorage.getItem('staffData');
-            
-            if (token && staffData) {
-                try {
-                    // Parse stored staff data
-                    currentStaff = JSON.parse(staffData);
-                    
-                    // Verify token is still valid (optional - for extra security)
-                fetch('/api/auth/verify', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                            // Token is valid, proceed with login
-                        onStaffLoginSuccess();
-                    } else {
-                            // Token expired, but we'll still allow login with stored data
-                            console.log('Token expired, but using stored staff data');
-                            onStaffLoginSuccess();
-                    }
-                })
-                .catch(() => {
-                        // Network error, but we'll still allow login with stored data
-                        console.log('Network error, but using stored staff data');
-                        onStaffLoginSuccess();
-                });
-                } catch (error) {
-                    console.error('Error parsing stored staff data:', error);
-                    showLoginOverlay();
-                }
-            } else {
-                showLoginOverlay();
-            }
+        function setProfileUI(staff){
+            document.getElementById('profileName').textContent = staff.name || 'Staff Member';
+            document.getElementById('profileDept').textContent = staff.department || 'Department';
+            const initials = (staff.name || 'AC').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+            document.getElementById('profileAvatar').textContent = initials;
         }
 
-        function handleLogin(e) {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
-            // Demo authentication
-            const demoStaff = {
-                'anithacs@gmail.com': { id: 'ACS', name: 'Prof. Anitha C S', dept: 'Computer Science', branch: 'Engineering', avatar: 'PS' },
-                'lakshmidurga@gmail.com': { id: 'LDN', name: 'Prof. Lakshmi Durga N', dept: 'Computer Science', branch: 'Engineering', avatar: 'LD' },
-                'gdhivyasri@gmail.com': { id: 'GD', name: 'Dr. G Dhivyasri', dept: 'Computer Science', branch: 'Engineering', avatar: 'GD' }
-            };
-
-            if (password === 'demo123' && demoStaff[email]) {
-                currentStaff = demoStaff[email];
-                
-                // Store permanent login data
-                localStorage.setItem('staffToken', 'demo-token-' + Date.now());
-                localStorage.setItem('staffData', JSON.stringify(currentStaff));
-                localStorage.setItem('permanentLogin', 'true');
-                
-                // Register this staff connection with the server so call routing works
-                try {
-                    if (socket && socket.connected) {
-                        socket.emit('staff-login', { email, password });
-                    }
-                } catch (_) {}
-                onStaffLoginSuccess();
-            } else {
-                alert('Invalid credentials. Please use the demo credentials provided.');
-            }
-        }
-
-        function onStaffLoginSuccess() {
-            hideLoginOverlay();
-            updateProfileInfo();
-            initializeCallUpdatesContainer();
-            loadTimetableData();
-            
-            // Register staff with email-based system
-            if (currentStaff && currentStaff.email) {
-                socket.emit('register-staff', currentStaff.email);
-                console.log(`📧 Staff registered with email: ${currentStaff.email}`);
-            }
-        }
-
-        function handleLogout() {
-            currentStaff = null;
-            localStorage.removeItem('staffToken');
-            localStorage.removeItem('staffData');
-            localStorage.removeItem('permanentLogin');
-            showLoginOverlay();
-        }
-
-        function showLoginOverlay() {
-            document.getElementById('loginOverlay').style.display = 'flex';
-        }
-
-        function hideLoginOverlay() {
-            document.getElementById('loginOverlay').style.display = 'none';
-        }
-
-        function updateProfileInfo() {
-            if (currentStaff) {
-                document.getElementById('profileName').textContent = currentStaff.name;
-                document.getElementById('profileDept').textContent = currentStaff.dept;
-                document.getElementById('profileBranch').textContent = currentStaff.branch;
-                document.getElementById('profileAvatar').textContent = currentStaff.avatar;
-            }
-        }
-
-        function updateConnectionStatus(status, type) {
-            const statusElement = document.getElementById('connectionStatus');
-            statusElement.textContent = status;
-            statusElement.className = `status-badge ${type}`;
-        }
-
-        function switchTab(tabName) {
-            // Remove active class from all nav links
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.classList.remove('active');
-            });
-            
-            // Add active class to clicked link
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-            
-            // Here you would typically show/hide different content sections
-            console.log('Switched to tab:', tabName);
-        }
-
-        // Call Updates Container
-        function initializeCallUpdatesContainer() {
-            if (!currentStaff) return;
-
-            const container = document.getElementById('callUpdatesContainer');
-            if (!container) return;
-
-            // Get JWT token from localStorage
-            const jwtToken = localStorage.getItem('staffToken') || 'demo-token';
-
-            // Render CallUpdatesWidget component
-            const callUpdatesElement = React.createElement(CallUpdatesWidget, {
-                staffId: currentStaff.id,
-                jwtToken: jwtToken
-            });
-
-            ReactDOM.render(callUpdatesElement, container);
-        }
-
-        // Timetable functions
-        function loadTimetableData() {
-            console.log('Loading timetable data for staff:', currentStaff);
-            if (currentStaff) {
-                socket.emit('get_staff_timetable', { staffId: currentStaff.id });
-                // Add a fallback to show the timetable even if no data
-                setTimeout(() => {
-                    const timetableGrid = document.getElementById('timetableGrid');
-                    if (timetableGrid) {
-                        console.log('Timetable grid found, ensuring visibility');
-                        timetableGrid.style.display = 'block';
-                        timetableGrid.style.visibility = 'visible';
-                    } else {
-                        console.log('Timetable grid not found!');
-                    }
-                }, 1000);
-            } else {
-                console.log('No current staff found');
-            }
-        }
-
-        function displayTimetableEntries(entries) {
-            if (!entries || entries.length === 0) {
-                // Clear all slots except breaks
-                clearTimetableSlots();
-                return;
-            }
-
-            // Clear all slots first
-            clearTimetableSlots();
-
-            // Populate slots with actual data
-            entries.forEach(entry => {
-                const day = entry.day;
-                const startTime = entry.timeSlot.start;
-                const endTime = entry.timeSlot.end;
-                const subject = entry.subject || entry.activity;
-                const room = entry.room;
-                
-                // Find the corresponding slot
-                const slot = document.querySelector(`[data-day="${day}"][data-time="${startTime}-${endTime}"]`);
-                if (slot && !slot.classList.contains('coffee-break') && !slot.classList.contains('lunch-break')) {
-                    slot.textContent = subject;
-                    slot.classList.add('has-subject');
-                    slot.title = `${subject}${room ? ` - ${room}` : ''}`;
-                }
-            });
-        }
-
-        function clearTimetableSlots() {
-            const slots = document.querySelectorAll('.day-slot:not(.coffee-break):not(.lunch-break)');
-            slots.forEach(slot => {
-                slot.textContent = 'Enter subject';
-                slot.classList.remove('has-subject');
-                slot.title = '';
-            });
-        }
-
-        // Enhanced timetable management functions
-        function setupTimetableClickHandlers() {
-            const slots = document.querySelectorAll('.day-slot:not(.coffee-break):not(.lunch-break)');
-            slots.forEach(slot => {
-                slot.addEventListener('click', function() {
-                    const day = this.dataset.day;
-                    const time = this.dataset.time;
-                    const [startTime, endTime] = time.split('-');
-                    const currentSubject = this.textContent;
-                    
-                    // Show enhanced modal for timetable entry
-                    showTimetableModal(day, startTime, endTime, currentSubject, this);
-                });
-            });
-        }
-
-        function showTimetableModal(day, startTime, endTime, currentSubject, slotElement) {
-            // Create modal overlay
-            const modalOverlay = document.createElement('div');
-            modalOverlay.className = 'modal-overlay';
-            modalOverlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.8);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 10000;
-            `;
-
-            // Create modal content
-            const modalContent = document.createElement('div');
-            modalContent.style.cssText = `
-                background: white;
-                padding: 2rem;
-                border-radius: 12px;
-                box-shadow: 0 20px 25px rgba(0, 0, 0, 0.3);
-                max-width: 500px;
-                width: 90%;
-                color: #1a202c;
-            `;
-
-            modalContent.innerHTML = `
-                <h3 style="margin-bottom: 1.5rem; color: #2d3748; font-size: 1.25rem;">Timetable Entry</h3>
-                <div style="margin-bottom: 1rem;">
-                    <strong>Day:</strong> ${day}<br>
-                    <strong>Time:</strong> ${startTime} - ${endTime}
-                </div>
-                <div style="margin-bottom: 1rem;">
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Subject:</label>
-                    <input type="text" id="subjectInput" value="${currentSubject === 'Enter subject' ? '' : currentSubject}" 
-                           style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 1rem;">
-                </div>
-                <div style="margin-bottom: 1rem;">
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Room:</label>
-                    <input type="text" id="roomInput" placeholder="e.g., Room 101, Lab 2" 
-                           style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 1rem;">
-                </div>
-                <div style="margin-bottom: 1.5rem;">
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Batch/Semester:</label>
-                    <input type="text" id="batchInput" placeholder="e.g., CSE 3rd Sem, Batch A" 
-                           style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 1rem;">
-                </div>
-                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                    <button id="cancelBtn" style="padding: 0.75rem 1.5rem; border: 2px solid #e2e8f0; background: white; color: #4a5568; border-radius: 6px; cursor: pointer; font-weight: 600;">Cancel</button>
-                    <button id="deleteBtn" style="padding: 0.75rem 1.5rem; border: 2px solid #e53e3e; background: white; color: #e53e3e; border-radius: 6px; cursor: pointer; font-weight: 600;">Delete</button>
-                    <button id="saveBtn" style="padding: 0.75rem 1.5rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Save</button>
-                </div>
-            `;
-
-            modalOverlay.appendChild(modalContent);
-            document.body.appendChild(modalOverlay);
-
-            // Focus on subject input
-            const subjectInput = modalContent.querySelector('#subjectInput');
-            subjectInput.focus();
-            subjectInput.select();
-
-            // Event handlers
-            modalContent.querySelector('#cancelBtn').onclick = () => {
-                document.body.removeChild(modalOverlay);
-            };
-
-            modalContent.querySelector('#deleteBtn').onclick = () => {
-                if (confirm('Are you sure you want to delete this timetable entry?')) {
-                    deleteTimetableEntry(day, startTime, endTime, slotElement);
-                    document.body.removeChild(modalOverlay);
-                }
-            };
-
-            modalContent.querySelector('#saveBtn').onclick = () => {
-                const subject = subjectInput.value.trim();
-                const room = modalContent.querySelector('#roomInput').value.trim();
-                const batch = modalContent.querySelector('#batchInput').value.trim();
-
-                if (subject) {
-                    saveTimetableEntry(day, startTime, endTime, subject, room, batch, slotElement);
-                } else {
-                    alert('Please enter a subject name.');
+        let callLogsPage = 1;
+        let callLogsTotal = 0;
+        let callLogsLimit = 20;
+        async function loadCallLogs(reset=false){
+            try {
+                const username = getUsername(currentStaff);
+                if (reset) { callLogsPage = 1; }
+                const resp = await apiFetch(`/api/staff/${encodeURIComponent(username)}/call-logs?page=${callLogsPage}&limit=${callLogsLimit}`);
+                const logs = resp.items || [];
+                callLogsTotal = resp.total || logs.length;
+                const list = document.getElementById('callLogList');
+                if (reset) list.innerHTML = '';
+                if (!logs || logs.length === 0){
+                    if (reset) list.innerHTML = '<div style="color:#94a3b8">No call logs yet.</div>';
+                    // Also clear call updates panel
+                    const updates = document.getElementById('callUpdatesList');
+                    if (updates && reset) updates.innerHTML = '<div style="color:#94a3b8">No recent calls.</div>';
                     return;
                 }
-                document.body.removeChild(modalOverlay);
-            };
+                logs.slice(0,6).forEach(log => {
+                    const iconClass = log.status === 'missed' ? 'missed' : (log.type === 'incoming' ? 'incoming' : 'outgoing');
+                    const who = log.caller || log.callee || 'Unknown';
+                    const mins = Math.round((log.duration||0)/60);
+                    const when = new Date(log.timestamp||log.createdAt).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+                    const el = document.createElement('div');
+                    el.className = 'call-log-item';
+                    el.innerHTML = `
+                        <div class="call-log-icon ${iconClass}"><i class="fas fa-phone-alt"></i></div>
+                        <div class="call-log-content">
+                            <div class="call-log-name">${who}</div>
+                            <div class="call-log-time">${mins || 0} min • ${when}</div>
+                        </div>
+                        <span style="color: var(--text-muted); font-size: 12px; text-transform: capitalize;">${log.status || log.type}</span>
+                    `;
+                    list.appendChild(el);
+                });
 
-            // Close on overlay click
-            modalOverlay.onclick = (e) => {
-                if (e.target === modalOverlay) {
-                    document.body.removeChild(modalOverlay);
+                // Hydrate call updates with top 3
+                const updates = document.getElementById('callUpdatesList');
+                if (updates){
+                    updates.innerHTML = '';
+                    logs.slice(0,3).forEach(log => {
+                        const name = log.caller || log.callee || 'Unknown';
+                        const initials = name.split(' ').map(n=>n[0]).join('').toUpperCase();
+                        const time = new Date(log.timestamp||log.createdAt).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+                        const status = (log.status==='completed')? 'Completed' : (log.status==='in-progress') ? 'In Progress' : (log.status==='missed' ? 'Missed' : 'Scheduled');
+                        const statusClass = status==='Completed' ? 'status-completed' : status==='Scheduled' ? 'status-scheduled' : 'status-progress';
+                        const item = document.createElement('div');
+                        item.className = 'call-update-item';
+                        item.innerHTML = `
+                          <div class="call-avatar">${initials}</div>
+                          <div class="call-info">
+                            <div class="call-name">${name}</div>
+                            <div class="call-time">${time} • ${log.metadata?.mode || 'Video'}</div>
+                          </div>
+                          <span class="call-status ${statusClass}">${status}</span>
+                        `;
+                        updates.appendChild(item);
+                    });
                 }
-            };
-
-            // Close on Escape key
-            const handleEscape = (e) => {
-                if (e.key === 'Escape') {
-                    document.body.removeChild(modalOverlay);
-                    document.removeEventListener('keydown', handleEscape);
+                // Load more button handling
+                const existing = document.getElementById('loadMoreCallLogs');
+                if (existing) existing.remove();
+                if ((callLogsPage * callLogsLimit) < callLogsTotal){
+                  const btn = document.createElement('button');
+                  btn.id = 'loadMoreCallLogs';
+                  btn.className = 'logout-btn';
+                  btn.style.marginTop = '8px';
+                  btn.textContent = 'Load more';
+                  btn.addEventListener('click', async () => {
+                    callLogsPage += 1;
+                    await loadCallLogs(false);
+                  });
+                  list.parentElement.appendChild(btn);
                 }
-            };
-            document.addEventListener('keydown', handleEscape);
+            } catch (e){
+                console.warn('Call logs load failed:', e.message);
+            }
         }
 
-        function saveTimetableEntry(day, startTime, endTime, subject, room, batch, slotElement) {
-            const timetableEntry = {
-                staffId: currentStaff.id,
-                day: day,
-                timeSlot: {
-                    start: startTime,
-                    end: endTime
-                },
-                activity: 'Teaching',
-                subject: subject,
-                room: room,
-                batch: batch,
-                semester: '',
-                notes: '',
-                isRecurring: true
-            };
-
-            socket.emit('add_timetable_entry', timetableEntry);
-            showNotification('Timetable entry saved successfully!', 'success');
+        function renderFullTimetable(tt){
+            const container = document.getElementById('fullTimetableContent');
+            if (!tt || !tt.entries || tt.entries.length === 0){
+                container.innerHTML = '<p style="color:#94a3b8">No timetable entries yet.</p>';
+                return;
+            }
+            const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const groups = days.map(d => ({ day:d, items: tt.entries.filter(e => e.day===d).sort((a,b)=> (a.timeSlot?.start||'').localeCompare(b.timeSlot?.start||'')) }));
+            container.innerHTML = groups.map(g => `
+                <div style="margin-bottom:16px">
+                  <div style="font-weight:700;margin-bottom:8px">${g.day}</div>
+                  ${g.items.length===0?'<div style=\"color:#94a3b8\">— Free —</div>': g.items.map(e => `
+                    <div class="appointment-card" style="display:flex;justify-content:space-between;align-items:center">
+                      <div>
+                        <div class="appointment-title">${e.subject || e.activity || 'Class'}</div>
+                        <div class="appointment-time"><i class="far fa-clock"></i> ${e.timeSlot?.start || ''} - ${e.timeSlot?.end || ''}${e.room?` • ${e.room}`:''}${e.batch?` • ${e.batch}`:''}</div>
+                      </div>
+                      <span style="color:#94a3b8;font-size:12px">${e.activity||''}</span>
+                    </div>
+                  `).join('')}
+                </div>
+            `).join('');
         }
 
-        function deleteTimetableEntry(day, startTime, endTime, slotElement) {
-            // Find and delete the entry
-            socket.emit('delete_timetable_entry', {
-                staffId: currentStaff.id,
-                day: day,
-                timeSlot: { start: startTime, end: endTime }
+        let currentTimetable = [];
+        let isEditingTimetable = false;
+
+        function timetableRowTemplate(entry, idx, editable){
+            const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const activities = ['Teaching','Office Hours','Meeting','Lab Session','Consultation','Free','Busy'];
+            const daySelect = `<select ${editable?'' :'disabled'} data-idx="${idx}" data-key="day" style="background:transparent;border:1px solid var(--border-color);color:#e2e8f0;padding:6px;border-radius:6px;">${days.map(d=>`<option ${entry.day===d?'selected':''}>${d}</option>`).join('')}</select>`;
+            const start = entry.timeSlot?.start || '';
+            const end = entry.timeSlot?.end || '';
+            const timeStart = `<input ${editable?'' :'disabled'} data-idx="${idx}" data-key="timeStart" type="time" value="${start}" style="background:transparent;border:1px solid var(--border-color);color:#e2e8f0;padding:6px;border-radius:6px;"/>`;
+            const timeEnd = `<input ${editable?'' :'disabled'} data-idx="${idx}" data-key="timeEnd" type="time" value="${end}" style="background:transparent;border:1px solid var(--border-color);color:#e2e8f0;padding:6px;border-radius:6px;"/>`;
+            const activity = `<select ${editable?'' :'disabled'} data-idx="${idx}" data-key="activity" style="background:transparent;border:1px solid var(--border-color);color:#e2e8f0;padding:6px;border-radius:6px;">${activities.map(a=>`<option ${entry.activity===a?'selected':''}>${a}</option>`).join('')}</select>`;
+            const subject = `<input ${editable?'' :'disabled'} data-idx="${idx}" data-key="subject" value="${entry.subject||''}" placeholder="Subject" style="background:transparent;border:1px solid var(--border-color);color:#e2e8f0;padding:6px;border-radius:6px;"/>`;
+            const room = `<input ${editable?'' :'disabled'} data-idx="${idx}" data-key="room" value="${entry.room||''}" placeholder="Room" style="background:transparent;border:1px solid var(--border-color);color:#e2e8f0;padding:6px;border-radius:6px;"/>`;
+            const batch = `<input ${editable?'' :'disabled'} data-idx="${idx}" data-key="batch" value="${entry.batch||''}" placeholder="Batch" style="background:transparent;border:1px solid var(--border-color);color:#e2e8f0;padding:6px;border-radius:6px;"/>`;
+            const del = editable ? `<button data-del="${idx}" class="logout-btn" style="background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.3)"><i class='fas fa-trash'></i></button>` : '';
+            return `<div class="appointment-card" style="display:grid;grid-template-columns:140px 120px 120px 160px 1fr 140px 120px 60px;gap:8px;align-items:center;">${daySelect}${timeStart}${timeEnd}${activity}${subject}${room}${batch}${del}</div>`;
+        }
+
+        function renderEditableTimetable(){
+            const container = document.getElementById('fullTimetableContent');
+            const header = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="color:#94a3b8;font-size:12px">${isEditingTimetable? 'Edit mode' : 'View mode'}</div><button id=\"addRowBtn\" class=\"logout-btn\" style=\"background:rgba(68,97,242,0.15);color:#93c5fd;border-color:rgba(68,97,242,0.3)\"><i class='fas fa-plus'></i> Add Row</button></div>`;
+            const rows = currentTimetable.map((e,idx)=> timetableRowTemplate(e, idx, isEditingTimetable)).join('');
+            container.innerHTML = header + (rows || '<div style="color:#94a3b8">No timetable entries yet.</div>');
+            const addBtn = document.getElementById('addRowBtn');
+            if (addBtn) addBtn.onclick = () => {
+                currentTimetable.push({ day:'Monday', timeSlot:{start:'09:00', end:'10:00'}, activity:'Teaching', subject:'', room:'', batch:'' });
+                renderEditableTimetable();
+            };
+            // Wire deletes and input changes
+            container.querySelectorAll('button[data-del]')?.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const i = parseInt(btn.getAttribute('data-del'),10);
+                    currentTimetable.splice(i,1);
+                    renderEditableTimetable();
+                });
             });
-            showNotification('Timetable entry deleted!', 'info');
+            container.querySelectorAll('select[data-idx],input[data-idx]')?.forEach(inp => {
+                inp.addEventListener('change', () => {
+                    const i = parseInt(inp.getAttribute('data-idx'),10);
+                    const key = inp.getAttribute('data-key');
+                    const val = inp.value;
+                    const entry = currentTimetable[i] || (currentTimetable[i] = { timeSlot:{} });
+                    if (key === 'day') entry.day = val;
+                    else if (key === 'timeStart') entry.timeSlot = { ...(entry.timeSlot||{}), start: val };
+                    else if (key === 'timeEnd') entry.timeSlot = { ...(entry.timeSlot||{}), end: val };
+                    else if (key === 'activity') entry.activity = val;
+                    else entry[key] = val;
+                });
+            });
         }
 
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
+        async function loadTimetable(){
+            try {
+                const username = getUsername(currentStaff);
+                const tt = await apiFetch(`/api/staff/${encodeURIComponent(username)}/timetable`);
+                currentTimetable = Array.isArray(tt?.entries) ? tt.entries : [];
+                const ttLoad = document.getElementById('ttLoading');
+                if (ttLoad) ttLoad.style.display = 'none';
+                renderFullTimetable(tt);
+                renderEditableTimetable();
+            } catch (e){
+                console.warn('Timetable load failed:', e.message);
+            }
+        }
+
+        async function saveTimetable(){
+            try {
+                const username = getUsername(currentStaff);
+                const payload = { entries: currentTimetable };
+                const res = await apiFetch(`/api/staff/${encodeURIComponent(username)}/timetable`, { method: 'PUT', body: JSON.stringify(payload) });
+                renderFullTimetable(res.timetable);
+                isEditingTimetable = false;
+                document.getElementById('saveTimetableBtn').style.display = 'none';
+                document.getElementById('editTimetableBtn').style.display = 'inline-block';
+                renderEditableTimetable();
+                alert('Timetable updated successfully');
+            } catch (e){
+                alert('Failed to save timetable');
+            }
+        }
+
+        async function finishLoginAndLoad(staff, token){
+            currentStaff = staff;
+            localStorage.setItem(AUTH_TOKEN_KEY, token);
+            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(staff));
+
+            // Ensure URL reflects username
+            const username = getUsername(staff);
+            if (username && !location.pathname.endsWith(`/${username}`)) {
+                history.replaceState(null, '', `/staff-interface/${encodeURIComponent(username)}`);
+            }
+
+            // Hide login and update UI
+            loginOverlay.classList.add('hidden');
+            setProfileUI(staff);
+
+            // Register socket presence by email for incoming calls routing
+            if (staff.email) socket.emit('register-staff', staff.email);
+
+            // Load data
+            await loadCallLogs(true);
+            await loadTimetable();
+        }
+
+        // Login submit → REST auth
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('emailInput').value.trim();
+            const password = document.getElementById('passwordInput').value;
+            try {
+                const { token, staff } = await apiFetch('/api/staff/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+                await finishLoginAndLoad(staff, token);
+            } catch (err){
+                console.error('Login failed:', err);
+                alert('Login failed. Please check your credentials.');
+            }
+        });
+
+        // Restore session from JWT on load
+        window.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem(AUTH_TOKEN_KEY);
+            const cached = localStorage.getItem(AUTH_USER_KEY);
+            if (!token) return; // show overlay
+            try {
+                const me = await apiFetch('/api/staff/me');
+                // Prefer fresh server profile; fallback to cached
+                const staff = me || (cached ? JSON.parse(cached) : null);
+                if (staff){
+                    await finishLoginAndLoad(staff, token);
+                }
+            } catch (e){
+                console.warn('Session restore failed:', e.message);
+                localStorage.removeItem(AUTH_TOKEN_KEY);
+                localStorage.removeItem(AUTH_USER_KEY);
+            }
+        });
+
+        // Logout handling
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+            localStorage.removeItem(AUTH_USER_KEY);
+            currentStaff = null;
+            socket.disconnect();
+            loginOverlay.classList.remove('hidden');
+            // Keep user on same page; reconnect socket for future login
+            setTimeout(() => socket.connect(), 200);
+        });
+
+        // Wire timetable edit/save
+        document.getElementById('editTimetableBtn').addEventListener('click', () => {
+            isEditingTimetable = true;
+            document.getElementById('saveTimetableBtn').style.display = 'inline-block';
+            document.getElementById('editTimetableBtn').style.display = 'none';
+            renderEditableTimetable();
+        });
+        document.getElementById('saveTimetableBtn').addEventListener('click', saveTimetable);
+
+        // Page Navigation
+        const navLinks = document.querySelectorAll('.nav-link');
+        const pages = {
+            dashboard: document.getElementById('dashboardPage'),
+            timetable: document.getElementById('timetablePage'),
+            calls: document.getElementById('callsPage'),
+            appointments: document.getElementById('appointmentsPage'),
+            notifications: document.getElementById('notificationsPage'),
+            settings: document.getElementById('settingsPage')
+        };
+
+        // Show/hide pages
+        function showPage(pageName) {
+            // Hide all pages
+            Object.values(pages).forEach(page => {
+                if (page) page.style.display = 'none';
+            });
+            
+            // Show selected page
+            if (pages[pageName]) {
+                pages[pageName].style.display = 'block';
+            }
+            
+            // Update active nav link
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.dataset.page === pageName) {
+                    link.classList.add('active');
+                }
+            });
+            
+            // Update page title
+            const pageTitles = {
+                dashboard: 'Staff Dashboard',
+                timetable: 'My Timetable',
+                calls: 'Call History',
+                appointments: 'Appointments',
+                notifications: 'Notifications',
+                settings: 'Settings'
+            };
+            document.querySelector('.page-title-section h1').textContent = pageTitles[pageName] || 'Staff Dashboard';
+        }
+
+        // Nav link click handlers
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const pageName = link.dataset.page;
+                showPage(pageName);
+                
+                // Save current page to localStorage
+                localStorage.setItem('currentPage', pageName);
+            });
+        });
+
+        // Restore last viewed page
+        const lastPage = localStorage.getItem('currentPage') || 'dashboard';
+        setTimeout(() => showPage(lastPage), 100);
+
+        // Handle login error
+        socket.on('login-error', (data) => {
+            alert(data.message || 'Login failed. Please check your credentials.');
+        });
+
+        // Incoming call (new unified event) - only show popup on this event
+        socket.on('incoming-call', (callData) => {
+            // Ensure this call is intended for the logged-in staff
+            if (!currentStaff) return;
+            if (callData.staffEmail && callData.staffEmail !== currentStaff.email) return;
+
+            pendingCallRequest = callData; // expect { requestId, clientId, clientName, staffEmail }
+            const modal = document.getElementById('incomingCallModal');
+            const callerNameEl = document.getElementById('callerName');
+
+            callerNameEl.textContent = callData.clientName || 'Client';
+            document.querySelector('.call-modal-title').textContent = 'Incoming Video Call';
+            const subtitle = document.querySelector('.call-modal-subtitle');
+            subtitle.textContent = 'A client is requesting to start a video call';
+
+            // Only render the popup now; no auto behavior on login/refresh
+            modal.classList.add('active');
+        });
+
+        // Accept Call (only emits acceptance; actual call starts on 'start-call')
+        document.getElementById('acceptCallBtn').addEventListener('click', async () => {
+            if (pendingCallRequest) {
+                // Hide the incoming call modal with fade animation
+                const modal = document.getElementById('incomingCallModal');
+                modal.style.transition = 'opacity 0.3s ease-out';
+                modal.style.opacity = '0';
+                
+                setTimeout(() => {
+                    modal.classList.remove('active');
+                    modal.style.opacity = '1';
+                }, 300);
+                // Emit new acceptance event back to server; wait for 'start-call' to begin WebRTC
+                socket.emit('call-accepted', {
+                    requestId: pendingCallRequest.requestId,
+                    staffEmail: currentStaff.email,
+                    staffName: currentStaff.name
+                });
+                // Keep pendingCallRequest until start-call arrives
+            }
+        });
+
+        // Decline Call
+        document.getElementById('declineCallBtn').addEventListener('click', () => {
+            if (pendingCallRequest) {
+                // Emit rejection
+                socket.emit('call-rejected', {
+                    requestId: pendingCallRequest.requestId,
+                    staffEmail: currentStaff.email
+                });
+                document.getElementById('incomingCallModal').classList.remove('active');
+                pendingCallRequest = null;
+            }
+        });
+
+        // Start call (server-approved). Initialize WebRTC only now
+        async function handleStartCall(data) {
+            // data: { callId, clientId, clientName }
+            console.log('🎬 Staff start-call received:', data);
+            if (!data || !data.callId) return;
+            currentCallId = data.callId;
+
+            // Show video call UI
+            const videoContainer = document.getElementById('videoCallContainer');
+            const participantName = document.getElementById('callParticipantName');
+            participantName.textContent = `Video Call with ${data.clientName || 'Client'}`;
+            videoContainer.style.display = 'flex';
+
+            // Initialize media and peer connection
+            await initializeWebRTC();
+
+            // Update UI list and clear pending
+            addCallUpdate(data.clientName || 'Client', 'In Progress');
+            pendingCallRequest = null;
+        }
+
+        socket.on('start-call', handleStartCall);
+        // Back-compat with existing event name
+        socket.on('call-started', handleStartCall);
+
+        // Helper function to add call update
+        function addCallUpdate(name, status) {
+            const callUpdatesList = document.getElementById('callUpdatesList');
+            const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+            const now = new Date();
+            const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            
+            const statusClass = status === 'Completed' ? 'status-completed' : 
+                               status === 'Scheduled' ? 'status-scheduled' : 'status-progress';
+            
+            const item = document.createElement('div');
+            item.className = 'call-update-item';
+            item.innerHTML = `
+                <div class="call-avatar">${initials}</div>
+                <div class="call-info">
+                    <div class="call-name">${name}</div>
+                    <div class="call-time">${time} • Audio</div>
+                </div>
+                <span class="call-status ${statusClass}">${status}</span>
+            `;
+            
+            callUpdatesList.insertBefore(item, callUpdatesList.firstChild);
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            currentStaff = null;
+            loginOverlay.classList.remove('hidden');
+            socket.disconnect();
+            socket.connect();
+        });
+
+        // Navigation (for future pages)
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                
+                const page = link.getAttribute('data-page');
+                // Future: Handle page switching
+                console.log('Navigate to:', page);
+            });
+        });
+
+        // Mobile sidebar toggle (optional)
+        const toggleSidebar = () => {
+            document.getElementById('sidebar').classList.toggle('mobile-open');
+        };
+
+        // Waiting calls notification
+        socket.on('waiting-calls', (data) => {
+            console.log('Waiting calls:', data.count);
+        });
+
+        // Call accepted confirmation
+        socket.on('call-started', async (data) => {
+            console.log('📞 Call started:', data);
+            if (data.callId) {
+                currentCallId = data.callId;
+                console.log('📞 Call session started:', currentCallId);
+                // Initialize WebRTC for staff side
+                await initializeWebRTC();
+            }
+        });
+
+        // Video call accepted by staff confirmation
+        socket.on('video-call-accepted-staff', (data) => {
+            console.log('✅ Video call accepted:', data);
+            addCallUpdate(data.clientName || 'Client', 'In Progress');
+        });
+
+        // WebRTC Signaling Events
+        socket.on('offer', async (data) => {
+            console.log('📞 Received WebRTC offer from client');
+            try {
+                if (!peerConnection || data.callId !== currentCallId) {
+                    console.warn('No peer connection or mismatched callId');
+                    return;
+                }
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                socket.emit('answer', {
+                    callId: currentCallId,
+                    answer: answer
+                });
+                console.log('📞 Sent WebRTC answer to client');
+            } catch (error) {
+                console.error('Error handling offer:', error);
+            }
+        });
+
+        socket.on('answer', async (data) => {
+            console.log('📞 Received WebRTC answer');
+            try {
+                if (!peerConnection || data.callId !== currentCallId) return;
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } catch (error) {
+                console.error('Error handling answer:', error);
+            }
+        });
+
+        socket.on('ice-candidate', async (data) => {
+            console.log('📞 Received ICE candidate');
+            try {
+                if (!peerConnection || data.callId !== currentCallId) return;
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } catch (error) {
+                console.error('Error adding ICE candidate:', error);
+            }
+        });
+
+        // Call ended event
+        socket.on('call-ended', (data) => {
+            console.log('Call ended:', data);
+            closeVideoCall();
+        });
+
+        // WebRTC Variables
+        let peerConnection = null;
+        let localStream = null;
+        let remoteStream = null;
+        let currentCallId = null;
+        let isRequestingMedia = false;
+
+        // Show loading overlay
+        function showConnectingOverlay() {
+            const videoContainer = document.getElementById('videoCallContainer');
+            let overlay = document.getElementById('connectingOverlay');
+            
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'connectingOverlay';
+                overlay.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(11, 14, 26, 0.95);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10001;
+                    backdrop-filter: blur(10px);
+                `;
+                overlay.innerHTML = `
+                    <div class="spinner" style="
+                        border: 4px solid rgba(68, 97, 242, 0.1);
+                        border-top: 4px solid #4461F2;
+                        border-radius: 50%;
+                        width: 50px;
+                        height: 50px;
+                        animation: spin 1s linear infinite;
+                    "></div>
+                    <p style="color: white; margin-top: 20px; font-size: 16px;">Connecting...</p>
+                    <p style="color: rgba(255,255,255,0.6); margin-top: 10px; font-size: 14px;">
+                        Please allow camera and microphone access
+                    </p>
+                `;
+                videoContainer.appendChild(overlay);
+            }
+            overlay.style.display = 'flex';
+        }
+
+        function hideConnectingOverlay() {
+            const overlay = document.getElementById('connectingOverlay');
+            if (overlay) {
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    overlay.style.opacity = '1';
+                }, 300);
+            }
+        }
+
+        // Show error message
+        function showPermissionError(message) {
+            hideConnectingOverlay();
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                padding: 1rem 1.5rem;
-                border-radius: 8px;
+                background: rgba(239, 68, 68, 0.95);
                 color: white;
-                font-weight: 600;
-                z-index: 10001;
-                animation: slideIn 0.3s ease;
+                padding: 16px 24px;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                z-index: 10002;
+                max-width: 400px;
+                backdrop-filter: blur(10px);
+                animation: slideIn 0.3s ease-out;
             `;
-
-            const colors = {
-                success: '#48bb78',
-                error: '#e53e3e',
-                info: '#4299e1',
-                warning: '#ed8936'
-            };
-
-            notification.style.background = colors[type] || colors.info;
-            notification.textContent = message;
-
-            document.body.appendChild(notification);
-
+            errorDiv.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 24px;"></i>
+                    <div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">Camera Access Denied</div>
+                        <div style="font-size: 14px; opacity: 0.9;">${message}</div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(errorDiv);
+            
             setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => {
-                    if (document.body.contains(notification)) {
-                        document.body.removeChild(notification);
-                    }
-                }, 300);
-            }, 3000);
+                errorDiv.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => errorDiv.remove(), 300);
+            }, 5000);
         }
 
-        function clearAllTimetableEntries() {
-            if (confirm('Are you sure you want to clear all timetable entries? This action cannot be undone.')) {
-                if (currentStaff) {
-                    socket.emit('clear_all_timetable_entries', { staffId: currentStaff.id });
-                    showNotification('All timetable entries cleared!', 'info');
-                }
-            }
-        }
-
-        function addSampleTimetableData() {
-            console.log('Adding sample timetable data for testing');
-            // Add some sample subjects to make the timetable visible
-            const sampleData = [
-                { day: 'Monday', time: '8:30-9:25', subject: 'Data Structures' },
-                { day: 'Monday', time: '9:25-10:20', subject: 'Algorithms' },
-                { day: 'Monday', time: '10:40-11:35', subject: 'Database Systems' },
-                { day: 'Tuesday', time: '8:30-9:25', subject: 'Computer Networks' },
-                { day: 'Tuesday', time: '9:25-10:20', subject: 'Operating Systems' },
-                { day: 'Wednesday', time: '8:30-9:25', subject: 'Software Engineering' },
-                { day: 'Wednesday', time: '10:40-11:35', subject: 'Web Development' },
-                { day: 'Thursday', time: '9:25-10:20', subject: 'Machine Learning' },
-                { day: 'Friday', time: '8:30-9:25', subject: 'Project Work' },
-                { day: 'Friday', time: '1:15-2:10', subject: 'Research Seminar' }
-            ];
-
-            sampleData.forEach(item => {
-                const slot = document.querySelector(`[data-day="${item.day}"][data-time="${item.time}"]`);
-                if (slot && !slot.classList.contains('coffee-break') && !slot.classList.contains('lunch-break')) {
-                    slot.textContent = item.subject;
-                    slot.classList.add('has-subject');
-                    slot.title = item.subject;
-                }
-            });
-        }
-
-        function displayTimetableEntries(entries) {
-            console.log('Displaying timetable entries:', entries);
-            if (!entries || entries.length === 0) {
-                console.log('No entries found, clearing slots');
-                // Clear all slots except breaks
-                clearTimetableSlots();
-                // Add some sample data for testing
-                addSampleTimetableData();
+        // Initialize WebRTC with improved permission handling
+        async function initializeWebRTC() {
+            // Prevent multiple simultaneous requests
+            if (isRequestingMedia) {
+                console.log('⏳ Media request already in progress...');
                 return;
             }
 
-            // Clear all slots first
-            clearTimetableSlots();
-
-            // Populate slots with actual data
-            entries.forEach(entry => {
-                const day = entry.day;
-                const startTime = entry.timeSlot.start;
-                const endTime = entry.timeSlot.end;
-                const subject = entry.subject || entry.activity;
-                const room = entry.room;
-                const batch = entry.batch;
-                
-                console.log(`Processing entry: ${day} ${startTime}-${endTime} - ${subject}`);
-                
-                // Find the corresponding slot
-                const slot = document.querySelector(`[data-day="${day}"][data-time="${startTime}-${endTime}"]`);
-                if (slot && !slot.classList.contains('coffee-break') && !slot.classList.contains('lunch-break')) {
-                    // Create enhanced display text
-                    let displayText = subject;
-                    if (room) displayText += ` (${room})`;
-                    if (batch) displayText += ` - ${batch}`;
-                    
-                    slot.textContent = displayText;
-                    slot.classList.add('has-subject');
-                    slot.title = `${subject}${room ? ` - ${room}` : ''}${batch ? ` - ${batch}` : ''}`;
-                    console.log(`Updated slot: ${day} ${startTime}-${endTime}`);
-                } else {
-                    console.log(`Slot not found for: ${day} ${startTime}-${endTime}`);
-                }
-            });
-        }
-
-        // Call notification functions
-        let currentIncomingCall = null;
-
-        function showCallNotification(callData) {
-            currentIncomingCall = callData;
-            const notification = document.getElementById('callNotification');
-            const callerName = document.getElementById('callerName');
-            const callerDetails = document.getElementById('callerDetails');
-            
-            callerName.textContent = callData.clientName || 'Incoming Call';
-            callerDetails.textContent = `From Client (${callData.clientId})`;
-            
-            notification.classList.remove('hidden');
-            
-            // Auto-hide after 30 seconds if not answered
-            setTimeout(() => {
-                if (currentIncomingCall === callData) {
-                    hideCallNotification();
-                }
-            }, 30000);
-        }
-
-        function hideCallNotification() {
-            const notification = document.getElementById('callNotification');
-            notification.classList.add('hidden');
-            currentIncomingCall = null;
-        }
-
-        function acceptCall() {
-            if (currentIncomingCall) {
-                socket.emit('call-response', {
-                    clientId: currentIncomingCall.clientId,
-                    accepted: true,
-                    staffEmail: currentStaff.email
-                });
-                hideCallNotification();
-                showNotification('Call accepted!', 'success');
-            }
-        }
-
-        function declineCall() {
-            if (currentIncomingCall) {
-                socket.emit('call-response', {
-                    clientId: currentIncomingCall.clientId,
-                    accepted: false,
-                    staffEmail: currentStaff.email
-                });
-                hideCallNotification();
-                showNotification('Call declined', 'info');
-            }
-        }
-
-        // WebRTC call notification functions
-        let currentWebRTCCall = null;
-
-        function showWebRTCCallNotification(callData) {
-            currentWebRTCCall = callData;
-            const notification = document.getElementById('callNotification');
-            const callerName = document.getElementById('callerName');
-            const callerDetails = document.getElementById('callerDetails');
-            
-            callerName.textContent = `WebRTC Call - ${callData.clientName}`;
-            callerDetails.textContent = `Call ID: ${callData.callId}`;
-            
-            notification.classList.remove('hidden');
-            
-            // Auto-hide after 30 seconds if not answered
-            setTimeout(() => {
-                if (currentWebRTCCall === callData) {
-                    hideCallNotification();
-                }
-            }, 30000);
-        }
-
-        function acceptWebRTCCall() {
-            if (currentWebRTCCall) {
-                console.log('🎥 Accepting WebRTC call:', currentWebRTCCall);
-                
-                socket.emit('webrtc-call-response', {
-                    callId: currentWebRTCCall.callId,
-                    accepted: true,
-                    staffEmail: currentStaff.email
-                });
-                
-                // Add call update
-                addCallUpdate({
-                    type: 'webrtc-call-response',
-                    callId: currentWebRTCCall.callId,
-                    clientName: currentWebRTCCall.clientName,
-                    clientId: currentWebRTCCall.clientId,
-                    status: 'accepted',
-                    timestamp: new Date()
-                });
-                
-                // Show GMeet-style video call interface
-                showVideoCallInterface(currentWebRTCCall);
-                
-                hideCallNotification();
-                showNotification('WebRTC call accepted!', 'success');
-            } else {
-                console.error('❌ No current WebRTC call to accept');
-            }
-        }
-
-        function declineWebRTCCall() {
-            if (currentWebRTCCall) {
-                socket.emit('webrtc-call-response', {
-                    callId: currentWebRTCCall.callId,
-                    accepted: false,
-                    staffEmail: currentStaff.email
-                });
-                
-                // Add call update
-                addCallUpdate({
-                    type: 'webrtc-call-response',
-                    callId: currentWebRTCCall.callId,
-                    clientName: currentWebRTCCall.clientName,
-                    clientId: currentWebRTCCall.clientId,
-                    status: 'declined',
-                    timestamp: new Date()
-                });
-                
-                hideCallNotification();
-                showNotification('WebRTC call declined', 'info');
-            }
-        }
-
-        // Universal call handlers that work for both regular and WebRTC calls
-        function handleCallAccept() {
-            if (currentWebRTCCall) {
-                acceptWebRTCCall();
-            } else if (currentIncomingCall) {
-                acceptCall();
-            }
-        }
-
-        function handleCallDecline() {
-            if (currentWebRTCCall) {
-                declineWebRTCCall();
-            } else if (currentIncomingCall) {
-                declineCall();
-            }
-        }
-
-        // Add call update to the call updates container
-        function addCallUpdate(updateData) {
-            console.log('📞 Adding call update:', updateData);
-            const callUpdatesList = document.getElementById('callUpdatesList');
-            
-            if (!callUpdatesList) {
-                console.error('❌ Call updates list not found!');
-                return;
-            }
-            
-            // Remove the "no updates" message if it exists
-            const noUpdatesMsg = callUpdatesList.querySelector('div[style*="text-align: center"]');
-            if (noUpdatesMsg) {
-                console.log('📞 Removing "no updates" message');
-                noUpdatesMsg.remove();
-            }
-            
-            // Create call update item
-            const updateItem = document.createElement('div');
-            updateItem.className = 'call-update-item';
-            
-            let iconClass = 'incoming';
-            let iconSymbol = '📞';
-            let title = 'Incoming Call';
-            let details = `From: ${updateData.clientName}`;
-            
-            if (updateData.type === 'webrtc-call-request') {
-                iconClass = 'incoming';
-                iconSymbol = '🎥';
-                title = 'WebRTC Call Request';
-                details = `From: ${updateData.clientName} (${updateData.clientId})`;
-            } else if (updateData.status === 'accepted') {
-                iconClass = 'accepted';
-                iconSymbol = '✅';
-                title = 'Call Accepted';
-                details = `Connected with: ${updateData.clientName}`;
-            } else if (updateData.status === 'declined') {
-                iconClass = 'declined';
-                iconSymbol = '❌';
-                title = 'Call Declined';
-                details = `Declined by: ${updateData.clientName}`;
-            } else if (updateData.status === 'ended') {
-                iconClass = 'declined';
-                iconSymbol = '🔚';
-                title = 'Call Ended';
-                details = `Call ended with: ${updateData.clientName}`;
-            }
-            
-            const time = new Date(updateData.timestamp).toLocaleTimeString();
-            
-            updateItem.innerHTML = `
-                <div class="call-update-icon ${iconClass}">
-                    ${iconSymbol}
-                </div>
-                <div class="call-update-content">
-                    <div class="call-update-title">${title}</div>
-                    <div class="call-update-details">${details}</div>
-                    <div class="call-update-time">${time}</div>
-                </div>
-            `;
-            
-            // Add to the top of the list
-            callUpdatesList.insertBefore(updateItem, callUpdatesList.firstChild);
-            
-            // Limit to 10 items
-            const items = callUpdatesList.querySelectorAll('.call-update-item');
-            if (items.length > 10) {
-                items[items.length - 1].remove();
-            }
-            
-            console.log('📞 Call update added successfully');
-        }
-
-        // GMeet-style video call functions
-        let localStream = null;
-        let remoteStream = null;
-        let peerConnection = null;
-        let currentCall = null;
-        let isMuted = false;
-        let isVideoEnabled = true;
-
-        function showVideoCallInterface(callData) {
-            console.log('🎥 Showing GMeet-style video call interface:', callData);
-            
-            const videoInterface = document.getElementById('videoCallInterface');
-            if (videoInterface) {
-                videoInterface.style.display = 'block';
-                currentCall = callData;
-                try {
-                    // Standardize to use callId consistently
-                    const callId = currentCall?.callId || currentCall?.id;
-                    if (callId) {
-                        socket.emit('join_call', { callId });
-                        currentCall.callId = callId;
-                        currentCall.id = callId; // Keep both for compatibility
-                    }
-                } catch (_) {}
-                
-                // Initialize video call
-                initializeVideoCall();
-            }
-        }
-
-        async function initializeVideoCall() {
             try {
-                console.log('🎥 Initializing video call for staff');
+                isRequestingMedia = true;
+                showConnectingOverlay();
                 
-                // Get user media
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
+                console.log('🎥 Requesting camera and microphone access...');
+                console.log('📍 Origin:', window.location.origin);
+                console.log('🔒 Secure context:', window.isSecureContext);
+                
+                // Request media with secure constraints
+                const constraints = {
+                    video: {
                         width: { ideal: 1280 },
                         height: { ideal: 720 },
                         facingMode: 'user'
                     },
-                    audio: { 
+                    audio: {
                         echoCancellation: true,
-                        noiseSuppression: true
-                    }
-                });
-                
-                // Configure video elements
-                configureVideoElements();
-                
-                // Update local video
-                updateLocalVideo();
-                
-                // Setup peer connection
-                initializePeerConnection(localStream);
-                
-                // Initialize call controls
-                initializeCallControls();
-                
-                console.log('✅ Video call initialized');
-            } catch (error) {
-                console.error('❌ Error initializing video call:', error);
-            }
-        }
-
-        function configureVideoElements() {
-            const localVideo = document.getElementById('localVideo');
-            const remoteVideo = document.getElementById('remoteVideo');
-            
-            if (localVideo) {
-                localVideo.setAttribute('playsinline', 'true');
-                localVideo.setAttribute('autoplay', 'true');
-                localVideo.setAttribute('muted', 'true');
-                localVideo.style.objectFit = 'cover';
-            }
-            
-            if (remoteVideo) {
-                remoteVideo.setAttribute('playsinline', 'true');
-                remoteVideo.setAttribute('autoplay', 'true');
-                remoteVideo.style.objectFit = 'cover';
-            }
-        }
-
-        function updateLocalVideo() {
-            const localVideo = document.getElementById('localVideo');
-            if (localVideo && localStream) {
-                localVideo.srcObject = localStream;
-                localVideo.play().then(() => {
-                    const localPlaceholder = document.getElementById('localPlaceholder');
-                    if (localPlaceholder) {
-                        localPlaceholder.style.display = 'none';
-                    }
-                }).catch(error => {
-                    console.warn('⚠️ Local video play failed:', error);
-                });
-            }
-        }
-
-        function updateRemoteVideo() {
-            const remoteVideo = document.getElementById('remoteVideo');
-            if (remoteVideo && remoteStream) {
-                remoteVideo.srcObject = remoteStream;
-                remoteVideo.play().then(() => {
-                    const remotePlaceholder = document.getElementById('remotePlaceholder');
-                    if (remotePlaceholder) {
-                        remotePlaceholder.style.display = 'none';
-                    }
-                    
-                    const connectingOverlay = document.getElementById('connectingOverlay');
-                    if (connectingOverlay) {
-                        connectingOverlay.style.display = 'none';
-                    }
-                }).catch(error => {
-                    console.warn('⚠️ Remote video play failed:', error);
-                });
-            }
-        }
-
-        function initializePeerConnection(localStream) {
-            try {
-                peerConnection = new RTCPeerConnection({
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
-                });
-                
-                // Add local stream
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-                
-                // Handle remote stream
-                peerConnection.ontrack = (event) => {
-                    console.log('📺 Remote stream received:', event);
-                    const remoteVideo = document.getElementById('remoteVideo');
-                    if (remoteVideo && event.streams[0]) {
-                        remoteStream = event.streams[0];
-                        remoteVideo.srcObject = remoteStream;
-                        updateRemoteVideo();
+                        noiseSuppression: true,
+                        autoGainControl: true
                     }
                 };
+
+                // Get local media stream
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                console.log('✅ Camera permission granted');
+                console.log('✅ Microphone permission granted');
+                console.log('✅ Local stream started successfully');
+                console.log('📹 Video tracks:', localStream.getVideoTracks().length);
+                console.log('🎤 Audio tracks:', localStream.getAudioTracks().length);
+                
+                // Display local video
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo) {
+                    localVideo.srcObject = localStream;
+                    localVideo.muted = true; // Prevent echo
+                    await localVideo.play();
+                    console.log('✅ Local video element attached and playing');
+                }
+                
+                // Create peer connection only after media is ready
+                const configuration = {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' }
+                    ],
+                    iceCandidatePoolSize: 10
+                };
+                
+                peerConnection = new RTCPeerConnection(configuration);
+                console.log('✅ Peer connection created');
+                
+                // Add local stream tracks to peer connection
+                localStream.getTracks().forEach(track => {
+                    const sender = peerConnection.addTrack(track, localStream);
+                    console.log('📹 Added track to peer connection:', track.kind, track.label);
+                });
                 
                 // Handle ICE candidates
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
-                        socket.emit('ice_candidate', {
-                            callId: currentCall?.callId || currentCall?.id,
+                        console.log('🧊 Sending ICE candidate');
+                        socket.emit('ice-candidate', {
+                            callId: currentCallId,
                             candidate: event.candidate
                         });
+                    } else {
+                        console.log('✅ All ICE candidates sent');
+                    }
+                };
+                
+                // Handle remote stream
+                peerConnection.ontrack = (event) => {
+                    console.log('📞 Received remote stream track:', event.track.kind);
+                    if (!remoteStream) {
+                        remoteStream = new MediaStream();
+                        const remoteVideo = document.getElementById('remoteVideo');
+                        if (remoteVideo) {
+                            remoteVideo.srcObject = remoteStream;
+                            remoteVideo.play();
+                            console.log('✅ Remote video element attached');
+                        }
+                    }
+                    remoteStream.addTrack(event.track);
+                    console.log('✅ Remote track added:', event.track.kind);
+                };
+                
+                // Handle connection state changes
+                peerConnection.onconnectionstatechange = () => {
+                    const state = peerConnection.connectionState;
+                    console.log('🔗 Connection state:', state);
+                    
+                    if (state === 'connected') {
+                        console.log('✅ Peer connection established successfully');
+                        hideConnectingOverlay();
+                    } else if (state === 'failed' || state === 'disconnected') {
+                        console.warn('⚠️ Connection state:', state);
                     }
                 };
 
-                // Fallback: if no remote stream within 1.5s, request a fresh offer
-                setTimeout(() => {
-                    const callRoomId = currentCall?.callId || currentCall?.id;
-                    if (!remoteStream && callRoomId) {
-                        console.log('🔄 No remote stream yet, requesting fresh offer for', callRoomId);
-                        socket.emit('request_offer', { callId: callRoomId });
-                    } else if (!remoteStream) {
-                        console.warn('⚠️ Cannot request offer: missing callId');
-                    }
-                }, 1500);
+                // Handle ICE connection state
+                peerConnection.oniceconnectionstatechange = () => {
+                    console.log('🧊 ICE connection state:', peerConnection.iceConnectionState);
+                };
+                
+                hideConnectingOverlay();
+                console.log('✅ WebRTC initialized successfully');
+                isRequestingMedia = false;
+                
             } catch (error) {
-                console.error('❌ Error initializing peer connection:', error);
-            }
-        }
-
-        function initializeCallControls() {
-            isMuted = false;
-            isVideoEnabled = true;
-            updateControlButtons();
-        }
-
-        function updateControlButtons() {
-            const muteBtn = document.getElementById('muteBtn');
-            const videoBtn = document.getElementById('videoBtn');
-            
-            if (muteBtn) {
-                muteBtn.innerHTML = isMuted ? 
-                    '<span class="btn-icon">🔇</span><span class="btn-label">Unmute</span>' :
-                    '<span class="btn-icon">🎤</span><span class="btn-label">Mute</span>';
-                muteBtn.className = `control-btn mute-btn ${isMuted ? 'muted' : ''}`;
-            }
-            
-            if (videoBtn) {
-                videoBtn.innerHTML = isVideoEnabled ? 
-                    '<span class="btn-icon">🎥</span><span class="btn-label">Video</span>' :
-                    '<span class="btn-icon">📹</span><span class="btn-label">Enable</span>';
-                videoBtn.className = `control-btn video-btn ${!isVideoEnabled ? 'disabled' : ''}`;
-            }
-        }
-
-        function toggleMute() {
-            console.log('🎤 Toggling mute');
-            if (localStream) {
-                const audioTrack = localStream.getAudioTracks()[0];
-                if (audioTrack) {
-                    audioTrack.enabled = !audioTrack.enabled;
-                    isMuted = !audioTrack.enabled;
-                    updateControlButtons();
-                    console.log(isMuted ? '🔇 Audio muted' : '🎤 Audio unmuted');
+                isRequestingMedia = false;
+                console.error('❌ Error initializing WebRTC:', error);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                
+                let errorMessage = 'Please allow camera and microphone access to start the call.';
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage = 'Camera access denied. Please allow camera access in your browser settings and try again.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage = 'No camera or microphone found. Please connect a camera and try again.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage = 'Camera is already in use by another application. Please close other apps and try again.';
+                } else if (error.name === 'OverconstrainedError') {
+                    errorMessage = 'Camera does not support the requested settings. Trying with default settings...';
+                    // Retry with simpler constraints
+                    setTimeout(() => initializeWebRTC(), 1000);
+                    return;
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage = 'Your browser does not support video calls. Please use Chrome, Edge, or Firefox.';
+                } else if (error.name === 'TypeError') {
+                    errorMessage = 'Video calls require a secure connection (HTTPS). Please use a secure connection.';
                 }
+                
+                showPermissionError(errorMessage);
+                
+                // Close the video call UI on error
+                setTimeout(() => {
+                    closeVideoCall();
+                    document.getElementById('incomingCallModal').style.display = 'flex';
+                }, 3000);
             }
         }
 
-        function toggleVideo() {
-            console.log('🎥 Toggling video');
+        // Close video call
+        function closeVideoCall() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            remoteStream = null;
+            currentCallId = null;
+            console.log('📞 Video call closed');
+            
+            // Hide video call UI
+            document.getElementById('videoCallContainer').style.display = 'none';
+        }
+
+        // End Call Button
+        document.getElementById('endCallBtn').addEventListener('click', () => {
+            socket.emit('end-call', { callId: currentCallId });
+            closeVideoCall();
+        });
+
+        // Toggle Video
+        let videoEnabled = true;
+        document.getElementById('toggleVideoBtn').addEventListener('click', () => {
             if (localStream) {
                 const videoTrack = localStream.getVideoTracks()[0];
                 if (videoTrack) {
-                    videoTrack.enabled = !videoTrack.enabled;
-                    isVideoEnabled = videoTrack.enabled;
-                    updateControlButtons();
-                    console.log(isVideoEnabled ? '🎥 Video enabled' : '📹 Video disabled');
+                    videoEnabled = !videoEnabled;
+                    videoTrack.enabled = videoEnabled;
+                    const btn = document.getElementById('toggleVideoBtn');
+                    const icon = btn.querySelector('i');
+                    if (videoEnabled) {
+                        icon.className = 'fas fa-video';
+                        btn.classList.remove('disabled');
+                    } else {
+                        icon.className = 'fas fa-video-slash';
+                        btn.classList.add('disabled');
+                    }
                 }
             }
-        }
+        });
 
-        function endVideoCall() {
-            console.log('📞 Ending video call');
-            
-            // Stop local stream
+        // Toggle Audio
+        let audioEnabled = true;
+        document.getElementById('toggleAudioBtn').addEventListener('click', () => {
             if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioEnabled = !audioEnabled;
+                    audioTrack.enabled = audioEnabled;
+                    const btn = document.getElementById('toggleAudioBtn');
+                    const icon = btn.querySelector('i');
+                    if (audioEnabled) {
+                        icon.className = 'fas fa-microphone';
+                        btn.classList.remove('disabled');
+                    } else {
+                        icon.className = 'fas fa-microphone-slash';
+                        btn.classList.add('disabled');
+                    }
+                }
             }
-            
-            // Close peer connection
-            if (peerConnection) {
-                peerConnection.close();
-            }
-            
-            // Hide video interface
-            const videoInterface = document.getElementById('videoCallInterface');
-            if (videoInterface) {
-                videoInterface.style.display = 'none';
-            }
-            
-            // Reset states
-            localStream = null;
-            remoteStream = null;
-            peerConnection = null;
-            currentCall = null;
-            
-            console.log('✅ Video call ended');
-        }
+        });
 
-        // Initialize timetable click handlers when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(setupTimetableClickHandlers, 1000);
+        // Connection status
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
         });
     </script>
-
-    <!-- iOS-style Call Notification -->
-    <div id="callNotification" class="call-notification hidden">
-        <div class="call-notification-content">
-            <div class="call-notification-header">
-                <div class="caller-avatar">📞</div>
-                <div class="caller-info">
-                    <h3 id="callerName">Incoming Call</h3>
-                    <p id="callerDetails">From Client</p>
-                </div>
-            </div>
-            <div class="call-notification-actions">
-                <button class="call-btn decline" onclick="handleCallDecline()">
-                    <i class="fas fa-phone-slash"></i>
-                </button>
-                <button class="call-btn accept" onclick="handleCallAccept()">
-                    <i class="fas fa-phone"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- GMeet-Style Video Call Interface -->
-    <div id="videoCallInterface" class="video-call-overlay" style="display: none;">
-        <div class="video-call-container">
-            <div class="video-call-header">
-                <div class="call-info">
-                    <h3>📹 Video Call with Client</h3>
-                    <span class="call-status" id="callStatus">Connecting...</span>
-                </div>
-                <button class="close-video-call" onclick="endVideoCall()" title="Close Call">
-                    ✕
-                </button>
-            </div>
-            
-            <div class="video-call-content">
-                <!-- Main video grid - GMeet style -->
-                <div class="video-grid">
-                    <!-- Remote video (main) -->
-                    <div class="remote-video-container main-video">
-                        <video id="remoteVideo" autoplay playsinline></video>
-                        <div class="video-info">
-                            <span class="caller-name">Client</span>
-                            <span class="video-label">Remote</span>
-                </div>
-                        <div class="video-placeholder" id="remotePlaceholder">
-                            <div class="placeholder-icon">👤</div>
-                            <div class="placeholder-text">Waiting for client...</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Local video (picture-in-picture) -->
-                    <div class="local-video-container pip-video">
-                        <video id="localVideo" autoplay playsinline muted></video>
-                        <div class="video-info">
-                            <span class="caller-name">You</span>
-                            <span class="video-label">Local</span>
-                        </div>
-                        <div class="video-placeholder" id="localPlaceholder">
-                            <div class="placeholder-icon">👤</div>
-                            <div class="placeholder-text">Your video</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Control bar - GMeet style -->
-                <div class="video-controls">
-                    <button class="control-btn mute-btn" id="muteBtn" onclick="toggleMute()" title="Mute/Unmute">
-                        <span class="btn-icon">🎤</span>
-                        <span class="btn-label">Mute</span>
-                    </button>
-                    <button class="control-btn video-btn" id="videoBtn" onclick="toggleVideo()" title="Turn Video On/Off">
-                        <span class="btn-icon">🎥</span>
-                        <span class="btn-label">Video</span>
-                    </button>
-                    <button class="control-btn end-call-btn" onclick="endVideoCall()" title="End Call">
-                        <span class="btn-icon">📞</span>
-                        <span class="btn-label">End Call</span>
-                    </button>
-                </div>
-                
-                <!-- Connecting overlay -->
-                <div class="connecting-overlay" id="connectingOverlay">
-                    <div class="spinner"></div>
-                    <div class="connecting-text">Connecting to client...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Component Scripts -->
-    <script src="/utils/socket.js"></script>
-    <script src="/hooks/useWebRTC.js"></script>
-    <script src="/components/CallUpdatesWidget.jsx"></script>
-    <script src="/components/CallUpdates.jsx"></script>
-    <script src="/components/CallUpdatesContainer.js"></script>
-    <script src="/components/SessionWebRTCManager.js"></script>
-    <script src="/components/SessionManager.js"></script>
-    <script src="/components/SessionCallNotification.js"></script>
-    <script src="/components/SessionVideoCall.js"></script>
 </body>
 </html>

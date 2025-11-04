@@ -602,10 +602,14 @@
                     }
                 });
 
-                this.socket.on('call-accepted', (data) => {
-                    console.log('Call accepted by staff:', data);
-                    this.updateStatus(`Connected with ${data.staffName}`, 'connected');
-                    this.startVideoCall();
+                this.socket.on('call-accepted', async (data) => {
+                    // Legacy support: treat as start-call
+                    await this.handleStartCall(data);
+                });
+
+                // New unified event to begin WebRTC after staff accepts
+                this.socket.on('start-call', async (data) => {
+                    await this.handleStartCall(data);
                 });
 
                 this.socket.on('call-ended', (data) => {
@@ -802,15 +806,17 @@
             acceptCall() {
                 if (!this.currentStaff) return;
 
-                this.socket.emit('start-conversation', {
-                    name: 'Client',
-                    email: 'client@example.com',
-                    purpose: 'Video call request',
-                    selectedStaffId: this.currentStaff.id
-                });
-
-                this.updateStatus('Connecting...', 'connecting');
+                console.log('📞 Client: Sending call-request to server (no media yet)');
                 document.getElementById('callOfferSection').classList.add('hidden');
+                this.updateStatus('Request sent. Waiting for staff to accept...', 'connecting');
+
+                // Emit a minimal call-request; media capture happens after server approves
+                this.socket.emit('call-request', {
+                    staffEmail: this.currentStaff.email,
+                    staffId: this.currentStaff.id || this.currentStaff._id,
+                    clientName: 'Client',
+                    clientId: this.conversationId
+                });
             }
 
             declineCall() {
@@ -820,55 +826,157 @@
 
             async startVideoCall() {
                 try {
-                    this.localStream = await navigator.mediaDevices.getUserMedia({
-                        video: true,
-                        audio: true
-                    });
+                    console.log('🎥 Client: Requesting camera and microphone access...');
+                    console.log('📍 Client Origin:', window.location.origin);
+                    console.log('🔒 Client Secure context:', window.isSecureContext);
+                    
+                    // Show connecting status
+                    this.updateStatus('Requesting camera access...', 'connecting');
+                    
+                    // Request media with secure constraints
+                    const constraints = {
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user'
+                        },
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    };
+
+                    this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    
+                    console.log('✅ Client: Camera permission granted');
+                    console.log('✅ Client: Microphone permission granted');
+                    console.log('✅ Client: Local stream started successfully');
+                    console.log('📹 Client: Video tracks:', this.localStream.getVideoTracks().length);
+                    console.log('🎤 Client: Audio tracks:', this.localStream.getAudioTracks().length);
 
                     const localVideo = document.getElementById('localVideo');
                     localVideo.srcObject = this.localStream;
+                    localVideo.muted = true; // Prevent echo
+                    await localVideo.play();
+                    
+                    console.log('✅ Client: Local video element attached and playing');
 
                     document.getElementById('videoCallInterface').classList.add('active');
                     document.getElementById('statusDisplay').classList.add('hidden');
+                    this.updateStatus('Connecting to staff...', 'connecting');
 
                     this.initializeWebRTC();
                 } catch (error) {
-                    console.error('Error starting video call:', error);
-                    this.updateStatus('Failed to access camera/microphone', 'error');
+                    console.error('❌ Client: Error accessing camera/microphone:', error);
+                    console.error('Error name:', error.name);
+                    console.error('Error message:', error.message);
+                    
+                    let errorMessage = 'Failed to access camera/microphone';
+                    
+                    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                        errorMessage = 'Camera access denied. Please allow camera access and refresh the page.';
+                    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                        errorMessage = 'No camera or microphone found. Please connect a camera.';
+                    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                        errorMessage = 'Camera is already in use. Please close other apps using the camera.';
+                    } else if (error.name === 'OverconstrainedError') {
+                        errorMessage = 'Camera settings not supported. Trying with default settings...';
+                        // Retry with simpler constraints
+                        try {
+                            this.localStream = await navigator.mediaDevices.getUserMedia({
+                                video: true,
+                                audio: true
+                            });
+                            const localVideo = document.getElementById('localVideo');
+                            localVideo.srcObject = this.localStream;
+                            localVideo.muted = true;
+                            await localVideo.play();
+                            document.getElementById('videoCallInterface').classList.add('active');
+                            document.getElementById('statusDisplay').classList.add('hidden');
+                            this.initializeWebRTC();
+                            return;
+                        } catch (retryError) {
+                            errorMessage = 'Failed to access camera even with basic settings.';
+                        }
+                    } else if (error.name === 'NotSupportedError') {
+                        errorMessage = 'Video calls not supported. Please use Chrome, Edge, or Firefox.';
+                    } else if (error.name === 'TypeError') {
+                        errorMessage = 'Video calls require HTTPS. Please use a secure connection.';
+                    }
+                    
+                    this.updateStatus(errorMessage, 'error');
+                    
+                    // Show error message in chat
+                    this.displayClaraMessage(`⚠️ ${errorMessage} Please check your browser settings and try again.`);
                 }
             }
 
             initializeWebRTC() {
+                console.log('🔗 Client: Initializing WebRTC peer connection...');
+                
                 const configuration = {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' }
+                    ],
+                    iceCandidatePoolSize: 10
                 };
 
                 this.peerConnection = new RTCPeerConnection(configuration);
+                console.log('✅ Client: Peer connection created');
 
                 this.localStream.getTracks().forEach(track => {
                     this.peerConnection.addTrack(track, this.localStream);
+                    console.log('📹 Client: Added track to peer connection:', track.kind, track.label);
                 });
 
                 this.peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
+                        console.log('🧊 Client: Sending ICE candidate');
                         this.socket.emit('ice-candidate', {
                             candidate: event.candidate,
                             callId: this.currentCallId
                         });
+                    } else {
+                        console.log('✅ Client: All ICE candidates sent');
                     }
                 };
 
                 this.peerConnection.ontrack = (event) => {
+                    console.log('📞 Client: Received remote stream track:', event.track.kind);
                     const remoteVideo = document.getElementById('remoteVideo');
                     if (remoteVideo.srcObject !== event.streams[0]) {
                         remoteVideo.srcObject = event.streams[0];
+                        remoteVideo.play();
+                        console.log('✅ Client: Remote video element attached');
                     }
                 };
 
-                this.createOffer();
+                this.peerConnection.onconnectionstatechange = () => {
+                    const state = this.peerConnection.connectionState;
+                    console.log('🔗 Client: Connection state:', state);
+                    
+                    if (state === 'connected') {
+                        console.log('✅ Client: Peer connection established successfully');
+                        this.updateStatus('Connected', 'success');
+                    } else if (state === 'failed') {
+                        console.warn('⚠️ Client: Connection failed');
+                        this.updateStatus('Connection failed', 'error');
+                    } else if (state === 'disconnected') {
+                        console.warn('⚠️ Client: Connection disconnected');
+                        this.updateStatus('Disconnected', 'error');
+                    }
+                };
+
+                this.peerConnection.oniceconnectionstatechange = () => {
+                    console.log('🧊 Client: ICE connection state:', this.peerConnection.iceConnectionState);
+                };
+
+                console.log('✅ Client: WebRTC initialized');
+                // Do not create the offer here; wait until server confirms call-accepted with callId
             }
 
             async createOffer() {
@@ -1068,6 +1176,24 @@
                 return div.innerHTML;
             }
         }
+
+        // Helper to start call once server authorizes (start-call or call-accepted legacy)
+        ClaraReception.prototype.handleStartCall = async function(data) {
+            try {
+                if (data && data.callId) {
+                    this.currentCallId = data.callId;
+                    console.log('📞 Client: Linked to call session:', this.currentCallId);
+                } else {
+                    console.warn('⚠️ Client: start-call without callId');
+                }
+                this.updateStatus(`Connecting to ${data.staffName || 'staff'}...`, 'connecting');
+                await this.startVideoCall();
+                await this.createOffer();
+            } catch (err) {
+                console.error('Failed to begin WebRTC after start-call:', err);
+                this.updateStatus('Failed to start the call', 'error');
+            }
+        };
 
         // Initialize Clara Reception when page loads
         document.addEventListener('DOMContentLoaded', () => {

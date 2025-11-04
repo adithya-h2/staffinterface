@@ -1,20 +1,19 @@
 // Language → Voice Routing Map
-// Routes each language to native voice & locale using Sarvam's actual speaker names
-// The target_language_code (like hi-IN, ta-IN) determines the native accent
-// Using language-specific native speakers for authentic pronunciation (not generic multilingual)
+// Routes each language to native voice & locale using browser SpeechSynthesis API
+// No external dependencies - pure browser-native voice engine
 
 const VoiceRoutes = {
-    "en":   { lang: "en-IN", speaker: "anushka", model: "bulbul:v2", style: "neutral" }, // English - unchanged
-    "hi":   { lang: "hi-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }, // Hindi - manisha (Sarvam API)
-    "kn":   { lang: "kn-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }, // Kannada - manisha (Sarvam API)
-    "ta":   { lang: "ta-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }, // Tamil - manisha (Sarvam API)
-    "te":   { lang: "te-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }, // Telugu - manisha (Sarvam API)
-    "ml":   { lang: "ml-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }, // Malayalam - manisha (Sarvam API)
-    "bn":   { lang: "bn-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }, // Bengali - manisha (Sarvam API)
-    "mr":   { lang: "mr-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }, // Marathi - manisha (Sarvam API)
-    "gu":   { lang: "gu-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }, // Gujarati - manisha (Sarvam API)
-    "pa":   { lang: "pa-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }, // Punjabi - manisha (Sarvam API)
-    "od":   { lang: "od-IN", speaker: "manisha", model: "bulbul:v2", style: "native"  }  // Odia - manisha (Sarvam API)
+    "en":   { lang: "en-US", speaker: "default", model: "browser", style: "neutral" }, // English - browser native
+    "hi":   { lang: "hi-IN", speaker: "default", model: "browser", style: "native"  }, // Hindi - browser native
+    "kn":   { lang: "kn-IN", speaker: "default", model: "browser", style: "native"  }, // Kannada - browser native
+    "ta":   { lang: "ta-IN", speaker: "default", model: "browser", style: "native"  }, // Tamil - browser native
+    "te":   { lang: "te-IN", speaker: "default", model: "browser", style: "native"  }, // Telugu - browser native
+    "ml":   { lang: "ml-IN", speaker: "default", model: "browser", style: "native"  }, // Malayalam - browser native
+    "bn":   { lang: "bn-IN", speaker: "default", model: "browser", style: "native"  }, // Bengali - browser native
+    "mr":   { lang: "mr-IN", speaker: "default", model: "browser", style: "native"  }, // Marathi - browser native
+    "gu":   { lang: "gu-IN", speaker: "default", model: "browser", style: "native"  }, // Gujarati - browser native
+    "pa":   { lang: "pa-IN", speaker: "default", model: "browser", style: "native"  }, // Punjabi - browser native
+    "od":   { lang: "od-IN", speaker: "default", model: "browser", style: "native"  }  // Odia - browser native
 };
 
 // Hard fallback if detector returns variants like "hi" vs "hi-IN"

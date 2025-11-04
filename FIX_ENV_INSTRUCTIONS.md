@@ -1,6 +1,6 @@
-# Fix Your .env File - Remove NULL Characters
+# Clara AI Configuration Guide
 
-Your `.env` file has NULL characters that are causing issues. Here's how to fix it:
+Clara now uses browser-native speech recognition and synthesis (Web Speech API) with no external dependencies.
 
 ## Quick Fix Steps:
 
@@ -12,26 +12,22 @@ Your `.env` file has NULL characters that are causing issues. Here's how to fix 
    copy env-template.txt .env
    ```
 
-3. **Edit `.env` and add your Sarvam API key:**
-   ```
-   SARVAM_API_KEY=sk_ql1a4nll_kJf8dbyeoFKhQF8IUxrbXp78
-   SARVAM_API_URL=https://api.sarvam.ai
-   ```
+3. **Save the file** - Make sure you save it as plain text (not with encoding issues)
 
-4. **Save the file** - Make sure you save it as plain text (not with encoding issues)
-
-5. **Restart your CLARA server**
+4. **Restart your CLARA server**
 
 ## What Was Fixed:
 
-✅ Updated `voices.js` with correct Sarvam speaker names (`anushka` instead of `hin_in_native_f`)
-✅ Updated `env-template.txt` with clean Sarvam configuration
-✅ The `target_language_code` (like `hi-IN`, `ta-IN`) is what creates native accent - not the speaker name
+✅ Removed all Sarvam AI dependencies
+✅ Restored browser-native speech recognition (Web Speech API)
+✅ Restored browser-native text-to-speech (SpeechSynthesis API)
+✅ No external API keys required
+✅ No network calls for voice processing
 
 ## Important:
 
-- **Speaker name** (`anushka`) = Voice style (clear, professional)
-- **target_language_code** (`hi-IN`, `ta-IN`) = Native accent (this is what makes it sound native!)
-
-The language code `hi-IN` will make it sound like native Hindi, `ta-IN` like native Tamil, etc.
+- **Voice Recognition**: Uses browser's built-in SpeechRecognition API
+- **Voice Output**: Uses browser's built-in SpeechSynthesis API  
+- **No API Keys Needed**: Everything runs locally in the browser
+- **Multi-language Support**: Browsers provide native voices for many languages including Hindi, Kannada, Tamil, Telugu, etc.
 

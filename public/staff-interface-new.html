@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - Sai Vidya Institute</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-blue: #4461F2;
+            --bg-dark: #0B0E1A;
+            --bg-card: #151824;
+            --bg-sidebar: #11141F;
+            --border-color: #1E2234;
+            --text-primary: #FFFFFF;
+            --text-secondary: #8B93B0;
+            --text-muted: #5A6178;
+            --accent-cyan: #22D3EE;
+            --accent-purple: #8B5CF6;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 280px;
+            height: 100vh;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            padding: 24px 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .profile-section {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .profile-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .profile-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .profile-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .profile-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-dept {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Navigation */
+        .nav-menu {
+            padding: 0 12px;
+        }
+
+        .nav-item {
+            margin-bottom: 4px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            background: rgba(68, 97, 242, 0.08);
+            color: var(--primary-blue);
+        }
+
+        .nav-link.active {
+            background: var(--primary-blue);
+            color: white;
+            box-shadow: 0 4px 12px rgba(68, 97, 242, 0.3);
+        }
+
+        .nav-icon {
+            width: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        /* Main Content */
+        .main-wrapper {
+            margin-left: 280px;
+            min-height: 100vh;
+        }
+
+        .top-bar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .page-title-section h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .page-subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .top-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Dashboard Content */
+        .dashboard-content {
+            padding: 32px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .dashboard-row-2 {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .card-icon.blue {
+            background: linear-gradient(135deg, #4461F2, #6B8AFF);
+            color: white;
+        }
+
+        .card-icon.green {
+            background: linear-gradient(135deg, #10B981, #34D399);
+            color: white;
+        }
+
+        .card-icon.orange {
+            background: linear-gradient(135deg, #F59E0B, #FBBF24);
+            color: white;
+        }
+
+        .card-icon.purple {
+            background: linear-gradient(135deg, #8B5CF6, #A78BFA);
+            color: white;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        /* Weekly Timetable */
+        .timetable-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+        }
+
+        .timetable-table thead th {
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .timetable-table tbody tr {
+            background: rgba(30, 34, 52, 0.4);
+            border-radius: 8px;
+        }
+
+        .timetable-table tbody td {
+            padding: 12px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .timetable-table tbody td:first-child {
+            border-radius: 8px 0 0 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .timetable-table tbody td:last-child {
+            border-radius: 0 8px 8px 0;
+        }
+
+        .schedule-block {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .schedule-blue {
+            background: rgba(68, 97, 242, 0.15);
+            color: #6B8AFF;
+            border: 1px solid rgba(68, 97, 242, 0.25);
+        }
+
+        /* Call Updates */
+        .call-updates-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .call-update-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(30, 34, 52, 0.4);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .call-update-item:hover {
+            background: rgba(30, 34, 52, 0.6);
+        }
+
+        .call-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--primary-blue));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .call-info {
+            flex: 1;
+        }
+
+        .call-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .call-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .call-status {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-completed {
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--success);
+        }
+
+        .status-scheduled {
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--warning);
+        }
+
+        .status-progress {
+            background: rgba(68, 97, 242, 0.12);
+            color: var(--primary-blue);
+        }
+
+        /* Call Log */
+        .call-log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .call-log-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(30, 34, 52, 0.4);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .call-log-item:hover {
+            background: rgba(30, 34, 52, 0.6);
+        }
+
+        .call-log-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .call-log-icon.outgoing {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+        }
+
+        .call-log-icon.incoming {
+            background: rgba(68, 97, 242, 0.15);
+            color: var(--primary-blue);
+        }
+
+        .call-log-icon.missed {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .call-log-content {
+            flex: 1;
+        }
+
+        .call-log-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .call-log-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Appointments */
+        .appointment-card {
+            padding: 16px;
+            background: rgba(30, 34, 52, 0.4);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 3px solid var(--primary-blue);
+        }
+
+        .appointment-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .appointment-time {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Glassmorphism Incoming Call Modal */
+        .call-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .call-modal-overlay.active {
+            display: flex;
+        }
+
+        .call-modal {
+            background: rgba(21, 24, 36, 0.85);
+            backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 420px;
+            width: 90%;
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .call-icon-pulse {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 0 0 rgba(68, 97, 242, 0.7);
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(68, 97, 242, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 20px rgba(68, 97, 242, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(68, 97, 242, 0);
+            }
+        }
+
+        .call-modal-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .call-modal-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .call-modal-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+
+        .call-btn {
+            flex: 1;
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .call-btn-accept {
+            background: linear-gradient(135deg, var(--success), #34D399);
+            color: white;
+        }
+
+        .call-btn-accept:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .call-btn-decline {
+            background: linear-gradient(135deg, var(--danger), #F87171);
+            color: white;
+        }
+
+        .call-btn-decline:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Login Overlay */
+        .login-overlay {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(11, 14, 26, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-overlay.hidden {
+            display: none;
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 48px;
+            width: 90%;
+            max-width: 440px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(30, 34, 52, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            background: rgba(30, 34, 52, 0.7);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(68, 97, 242, 0.3);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(68, 97, 242, 0.5);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-blue);
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            .dashboard-row-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            .main-wrapper {
+                margin-left: 0;
+            }
+            .dashboard-content {
+                padding: 20px;
+            }
+            .top-bar {
+                padding: 16px 20px;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Overlay -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="login-header">
+                <h2>Staff Login</h2>
+                <p>Welcome back! Please sign in to continue</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="emailInput">Email</label>
+                    <input type="email" id="emailInput" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label for="passwordInput">Password</label>
+                    <input type="password" id="passwordInput" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="login-btn">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Incoming Call Modal -->
+    <div class="call-modal-overlay" id="incomingCallModal">
+        <div class="call-modal">
+            <div class="call-icon-pulse">
+                <i class="fas fa-phone"></i>
+            </div>
+            <h3 class="call-modal-title">Incoming Audio Call</h3>
+            <p class="call-modal-subtitle" id="callerName">Client Name</p>
+            <div class="call-modal-actions">
+                <button class="call-btn call-btn-accept" id="acceptCallBtn">
+                    <i class="fas fa-check"></i>
+                    Accept
+                </button>
+                <button class="call-btn call-btn-decline" id="declineCallBtn">
+                    <i class="fas fa-times"></i>
+                    Decline
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="profile-section">
+                <div class="profile-card">
+                    <div class="profile-avatar" id="profileAvatar">AC</div>
+                    <div class="profile-info">
+                        <div class="profile-name" id="profileName">Prof. Anitha C S</div>
+                        <div class="profile-dept" id="profileDept">Computer Science Engineering</div>
+                    </div>
+                </div>
+            </div>
+            <nav class="nav-menu">
+                <div class="nav-item">
+                    <a href="#" class="nav-link active" data-page="dashboard">
+                        <i class="fas fa-th-large nav-icon"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="timetable">
+                        <i class="fas fa-calendar-alt nav-icon"></i>
+                        <span>Timetable</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="calls">
+                        <i class="fas fa-phone nav-icon"></i>
+                        <span>Calls</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="appointments">
+                        <i class="fas fa-calendar-check nav-icon"></i>
+                        <span>Appointments</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="notifications">
+                        <i class="fas fa-bell nav-icon"></i>
+                        <span>Notifications</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-page="settings">
+                        <i class="fas fa-cog nav-icon"></i>
+                        <span>Settings</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Wrapper -->
+        <div class="main-wrapper">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="page-title-section">
+                    <h1>Staff Dashboard</h1>
+                    <p class="page-subtitle">Welcome back, Here's what's happening today.</p>
+                </div>
+                <div class="top-bar-actions">
+                    <div class="status-badge">
+                        <i class="fas fa-circle" style="font-size: 8px; margin-right: 6px;"></i>
+                        Connected
+                    </div>
+                    <button class="logout-btn" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <!-- First Row: Timetable + Call Updates -->
+                <div class="dashboard-grid">
+                    <!-- Weekly Timetable -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon blue">
+                                <i class="fas fa-calendar-week"></i>
+                            </div>
+                            <h3 class="card-title">Weekly Timetable</h3>
+                        </div>
+                        <div id="timetableContent">
+                            <table class="timetable-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Mon</th>
+                                        <th>Tue</th>
+                                        <th>Wed</th>
+                                        <th>Thu</th>
+                                        <th>Fri</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>09:00</td>
+                                        <td><span class="schedule-block schedule-blue">Team Standup</span></td>
+                                        <td></td>
+                                        <td><span class="schedule-block schedule-blue">1:1 with Sarah</span></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td>11:00</td>
+                                        <td></td>
+                                        <td><span class="schedule-block schedule-blue">Client Review</span></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td>14:00</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td><span class="schedule-block schedule-blue">Sprint Planning</span></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td>15:00</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td><span class="schedule-block schedule-blue">Team Lunch</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Call Updates -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon green">
+                                <i class="fas fa-phone-alt"></i>
+                            </div>
+                            <h3 class="card-title">Call Updates</h3>
+                        </div>
+                        <div class="call-updates-list" id="callUpdatesList">
+                            <div class="call-update-item">
+                                <div class="call-avatar">M</div>
+                                <div class="call-info">
+                                    <div class="call-name">Michael Chen</div>
+                                    <div class="call-time">10:30 AM • Video</div>
+                                </div>
+                                <span class="call-status status-completed">Completed</span>
+                            </div>
+                            <div class="call-update-item">
+                                <div class="call-avatar">E</div>
+                                <div class="call-info">
+                                    <div class="call-name">Emma Wilson</div>
+                                    <div class="call-time">11:45 AM • Audio</div>
+                                </div>
+                                <span class="call-status status-scheduled">Scheduled</span>
+                            </div>
+                            <div class="call-update-item">
+                                <div class="call-avatar">D</div>
+                                <div class="call-info">
+                                    <div class="call-name">David Park</div>
+                                    <div class="call-time">2:30 PM • Video</div>
+                                </div>
+                                <span class="call-status status-progress">In Progress</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Second Row: Call Log + Appointments -->
+                <div class="dashboard-row-2">
+                    <!-- Call Log -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon orange">
+                                <i class="fas fa-history"></i>
+                            </div>
+                            <h3 class="card-title">Call Log</h3>
+                        </div>
+                        <div class="call-log-list" id="callLogList">
+                            <div class="call-log-item">
+                                <div class="call-log-icon outgoing">
+                                    <i class="fas fa-phone-alt"></i>
+                                </div>
+                                <div class="call-log-content">
+                                    <div class="call-log-name">Alex Thompson</div>
+                                    <div class="call-log-time">15 min • 1 hour ago</div>
+                                </div>
+                                <span style="color: var(--text-muted); font-size: 12px;">Outgoing</span>
+                            </div>
+                            <div class="call-log-item">
+                                <div class="call-log-icon incoming">
+                                    <i class="fas fa-phone-alt"></i>
+                                </div>
+                                <div class="call-log-content">
+                                    <div class="call-log-name">Rachel Green</div>
+                                    <div class="call-log-time">8 min • 2 hours ago</div>
+                                </div>
+                                <span style="color: var(--text-muted); font-size: 12px;">Incoming</span>
+                            </div>
+                            <div class="call-log-item">
+                                <div class="call-log-icon outgoing">
+                                    <i class="fas fa-phone-alt"></i>
+                                </div>
+                                <div class="call-log-content">
+                                    <div class="call-log-name">James Wilson</div>
+                                    <div class="call-log-time">22 min • 3 hours ago</div>
+                                </div>
+                                <span style="color: var(--text-muted); font-size: 12px;">Outgoing</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Appointments -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon purple">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                            <h3 class="card-title">Appointments</h3>
+                        </div>
+                        <div id="appointmentsList">
+                            <div class="appointment-card">
+                                <div class="appointment-title">Quarterly Review</div>
+                                <div class="appointment-time">
+                                    <i class="far fa-clock"></i>
+                                    Today, 2:00 PM
+                                </div>
+                            </div>
+                            <div class="appointment-card">
+                                <div class="appointment-title">Product Demo</div>
+                                <div class="appointment-time">
+                                    <i class="far fa-clock"></i>
+                                    Tomorrow, 10:00 AM
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Socket.IO Connection
+        const socket = io();
+        
+        let currentStaff = null;
+        let pendingCallRequest = null;
+
+        // Login Handling
+        const loginOverlay = document.getElementById('loginOverlay');
+        const loginForm = document.getElementById('loginForm');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+
+            // Emit staff login event
+            socket.emit('staff-login', { email, password });
+        });
+
+        // Handle successful login
+        socket.on('staff-login-success', (data) => {
+            currentStaff = data.staff;
+            loginOverlay.classList.add('hidden');
+            
+            // Update profile
+            document.getElementById('profileName').textContent = currentStaff.name || 'Staff Member';
+            document.getElementById('profileDept').textContent = currentStaff.department || 'Department';
+            
+            // Set avatar initials
+            const initials = (currentStaff.name || 'AC')
+                .split(' ')
+                .map(n => n[0])
+                .join('')
+                .toUpperCase()
+                .slice(0, 2);
+            document.getElementById('profileAvatar').textContent = initials;
+        });
+
+        // Handle login error
+        socket.on('login-error', (data) => {
+            alert(data.message || 'Login failed. Please check your credentials.');
+        });
+
+        // Incoming Call Request Handler
+        socket.on('new-call-request', (callData) => {
+            pendingCallRequest = callData;
+            const modal = document.getElementById('incomingCallModal');
+            const callerNameEl = document.getElementById('callerName');
+            
+            callerNameEl.textContent = callData.clientName || 'Client';
+            modal.classList.add('active');
+
+            // Play notification sound (optional)
+            // const audio = new Audio('/notification.mp3');
+            // audio.play();
+        });
+
+        // Accept Call
+        document.getElementById('acceptCallBtn').addEventListener('click', () => {
+            if (pendingCallRequest) {
+                socket.emit('accept-call', { callId: pendingCallRequest.callId });
+                document.getElementById('incomingCallModal').classList.remove('active');
+                
+                // Add to call updates
+                addCallUpdate(pendingCallRequest.clientName, 'In Progress');
+                pendingCallRequest = null;
+            }
+        });
+
+        // Decline Call
+        document.getElementById('declineCallBtn').addEventListener('click', () => {
+            if (pendingCallRequest) {
+                // Optionally emit decline event
+                document.getElementById('incomingCallModal').classList.remove('active');
+                pendingCallRequest = null;
+            }
+        });
+
+        // Helper function to add call update
+        function addCallUpdate(name, status) {
+            const callUpdatesList = document.getElementById('callUpdatesList');
+            const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+            const now = new Date();
+            const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            
+            const statusClass = status === 'Completed' ? 'status-completed' : 
+                               status === 'Scheduled' ? 'status-scheduled' : 'status-progress';
+            
+            const item = document.createElement('div');
+            item.className = 'call-update-item';
+            item.innerHTML = `
+                <div class="call-avatar">${initials}</div>
+                <div class="call-info">
+                    <div class="call-name">${name}</div>
+                    <div class="call-time">${time} • Audio</div>
+                </div>
+                <span class="call-status ${statusClass}">${status}</span>
+            `;
+            
+            callUpdatesList.insertBefore(item, callUpdatesList.firstChild);
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            currentStaff = null;
+            loginOverlay.classList.remove('hidden');
+            socket.disconnect();
+            socket.connect();
+        });
+
+        // Navigation (for future pages)
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                
+                const page = link.getAttribute('data-page');
+                // Future: Handle page switching
+                console.log('Navigate to:', page);
+            });
+        });
+
+        // Mobile sidebar toggle (optional)
+        const toggleSidebar = () => {
+            document.getElementById('sidebar').classList.toggle('mobile-open');
+        };
+
+        // Waiting calls notification
+        socket.on('waiting-calls', (data) => {
+            console.log('Waiting calls:', data.count);
+        });
+
+        // Call accepted confirmation
+        socket.on('call-started', (data) => {
+            console.log('Call started:', data);
+        });
+
+        // Video call request handler
+        socket.on('video-call-request', (data) => {
+            pendingCallRequest = data;
+            const modal = document.getElementById('incomingCallModal');
+            const callerNameEl = document.getElementById('callerName');
+            
+            callerNameEl.textContent = data.clientName || 'Client';
+            document.querySelector('.call-modal-title').textContent = 'Incoming Video Call';
+            modal.classList.add('active');
+        });
+
+        // WebRTC call request (broadcast system)
+        socket.on('webrtc-call-request', (callData) => {
+            // Check if this call is for current staff
+            if (currentStaff && callData.staffEmail === currentStaff.email) {
+                pendingCallRequest = callData;
+                const modal = document.getElementById('incomingCallModal');
+                const callerNameEl = document.getElementById('callerName');
+                
+                callerNameEl.textContent = callData.clientName || 'Client';
+                modal.classList.add('active');
+            }
+        });
+
+        // Connection status
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        });
+    </script>
+</body>
+</html>
